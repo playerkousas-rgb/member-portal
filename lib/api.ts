@@ -6,6 +6,7 @@ import { resolveDistrictCode } from './district';
 import type {
   ApiResult, PublicInfo, Item, StockRequest, Course, CourseReg,
   Venue, VenueBooking, StaffSession, StaffInfo, ActivityNotice, AllRecord,
+  CourseParams, CourseLink,
 } from './types';
 
 function districtCode(): string {
@@ -43,11 +44,23 @@ export const api = {
   // ---------- 公開（唔使登入） ----------
   getPublicInfo: (): Promise<ApiResult<PublicInfo>> => callGet('getPublicInfo'),
 
+  // 課程參考資料（徽章、區等下拉選單用）
+  listCourseParams: (): Promise<ApiResult<CourseParams>> => callGet('listCourseParams'),
+
+  // 訓練班（CourseLinks：每班各自嘅收表 Script）
+  listCourseLinks: (): Promise<ApiResult<CourseLink[]>> => callGet('listCourseLinks'),
+  getCourseLinks: (token: string): Promise<ApiResult<CourseLink[]>> => callGet('getCourseLinks', { token }),
+  saveCourseLink: (token: string, link: Record<string, unknown>): Promise<ApiResult<{ saved: boolean; courseId?: string }>> =>
+    callPost('saveCourseLink', { token, link }),
+  deleteCourseLink: (token: string, courseId: string): Promise<ApiResult<{ deleted: boolean }>> =>
+    callPost('deleteCourseLink', { token, courseId }),
+
   listItems: (): Promise<ApiResult<Item[]>> => callGet('listItems'),
   submitStockRequest: (payload: Record<string, unknown>): Promise<ApiResult<{ refCode: string }>> =>
     callPost('submitStockRequest', payload),
 
   listCourses: (): Promise<ApiResult<Course[]>> => callGet('listCourses'),
+  listAllCourses: (token: string): Promise<ApiResult<Course[]>> => callGet('listAllCourses', { token }), // 含 closed
   submitCourseReg: (payload: Record<string, unknown>): Promise<ApiResult<{ refCode: string }>> =>
     callPost('submitCourseReg', payload),
 
@@ -91,10 +104,12 @@ export const api = {
   setCourseRegStatus: (token: string, id: string, status: string): Promise<ApiResult<{ saved: boolean }>> =>
     callPost('setCourseRegStatus', { token, id, status }),
   getCourses: (token: string): Promise<ApiResult<Course[]>> => callGet('getCourses', { token }),
-  saveCourse: (token: string, course: Partial<Course>): Promise<ApiResult<{ saved: boolean }>> =>
+  saveCourse: (token: string, course: Record<string, unknown>): Promise<ApiResult<{ saved: boolean }>> =>
     callPost('saveCourse', { token, course }),
   deleteCourse: (token: string, courseId: string): Promise<ApiResult<{ deleted: boolean }>> =>
     callPost('deleteCourse', { token, courseId }),
+  setRegFeePaid: (token: string, id: string, feePaid: boolean): Promise<ApiResult<{ saved: boolean }>> =>
+    callPost('setRegFeePaid', { token, id, feePaid }),
 
   // 借場
   getVenueBookings: (token: string): Promise<ApiResult<VenueBooking[]>> => callGet('getVenueBookings', { token }),

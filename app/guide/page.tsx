@@ -24,11 +24,12 @@ export default function GuidePage() {
       </div>
 
       <div className="panel">
-        <h2>🎓 報讀訓練班</h2>
+        <h2>🎓 訓練班報名</h2>
         <ol style={{ paddingLeft: 20, lineHeight: 2, fontSize: 13.5 }}>
-          <li>揀班 → 填報名表。</li>
-          <li>以轉數快（FPS）繳費，上傳入數紙截圖。</li>
-          <li>職員核對後以電郵確認。</li>
+          <li>去「訓練班報名」揀想報嘅班，睇節次、資格同費用。</li>
+          <li>填報名表（個人、童軍、監護人／領袖、FPS 繳費資料）。</li>
+          <li>以轉數快（FPS）繳費，貼上入數紙截圖連結。</li>
+          <li>提交後取得報名編號；負責職員喺該班專屬 Sheet 睇名單及核對。</li>
         </ol>
       </div>
 

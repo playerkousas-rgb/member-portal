@@ -31,6 +31,16 @@ export default function SetupPage() {
       </div>
 
       <div className="panel">
+        <h2>🎓 訓練班點樣加入？</h2>
+        <ol style={{ paddingLeft: 20, lineHeight: 2.1, fontSize: 13.5 }}>
+          <li>每個訓練班用「⬇️ 下載」嘅 <code>Code.gs.course</code> 模板，開 1 張新 Sheet 建表。</li>
+          <li>部署成網頁應用程式，攞 <code>/exec</code> 網址同 API Key。</li>
+          <li>喺職員後台 →「🎓 訓練班管理」加入，個班就會顯示喺 <code>/training</code> 開放報名。</li>
+          <li>報名資料會自動寫入嗰班自己張 Sheet 嘅「Regs」分頁。</li>
+        </ol>
+      </div>
+
+      <div className="panel">
         <h2>🔑 API Key 是甚麼？</h2>
         <p style={{ fontSize: 13.5 }}>API Key 是你區後台與前端之間的通訊密鑰。前端每次呼叫你的後台時，都會附帶這把 Key 來證明身份。沒有這把 Key，任何人都無法讀取或修改你的資料。</p>
         <ul style={{ paddingLeft: 20, lineHeight: 2, fontSize: 13.5, marginTop: 8 }}>

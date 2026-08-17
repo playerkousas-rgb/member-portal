@@ -13,6 +13,8 @@ var SHEET = {
   ITEMS: 'Items', STOCK_REQ: 'StockRequests',
   VENUES: 'Venues', VENUE_REQ: 'VenueBookings',
   COURSES: 'Courses', COURSE_REQ: 'CourseRegs',
+  COURSE_LINKS: 'CourseLinks', // 訓練班專屬 Script 目錄（管理員喺後台加）
+  COURSE_PARAMS: 'CourseParams',
   ACTIVITY_REQ: 'ActivityNotices',
   ALL_RECORDS: 'AllRecords',
 };
@@ -69,16 +71,21 @@ function doGet(e) {
       case 'getPublicInfo':  return json(ok(getPublicInfo_()));
       case 'listItems':      return json(ok(listItems_()));
       case 'listCourses':    return json(ok(listCourses_()));
+      case 'listCourseParams': return json(ok(listCourseParams_()));
+      case 'listCourseLinks': return json(ok(listCourseLinks_()));
+      case 'getCourseLinks':  return json(getCourseLinks_(p.token));
       case 'listVenues':     return json(ok(listVenues_()));
       case 'staffVerify':    return json(staffVerify_(p.token));
       case 'getStockRequests': return json(getStockRequests_(p.token));
       case 'getItems':       return json(getItems_(p.token));
       case 'getCourseRegs':  return json(getCourseRegs_(p.token));
       case 'getCourses':     return json(getCourses_(p.token));
+      case 'listAllCourses': return json(listAllCourses_(p.token));
       case 'getVenueBookings': return json(getVenueBookings_(p.token));
       case 'getVenues':      return json(getVenues_(p.token));
       case 'getStaffList':   return json(getStaffList_(p.token));
       case 'getActivityNotices': return json(getActivityNotices_(p.token));
+      case 'getAllRecords':    return json(getAllRecords_(p.token));
       default:               return json(err('未知的 action: ' + action));
     }
   } catch (ex) { return json(err('伺服器錯誤：' + ex)); }
@@ -107,6 +114,9 @@ function doPost(e) {
       case 'setCourseRegStatus': return json(setCourseRegStatus_(body.token, body.id, body.status));
       case 'saveCourse':         return json(saveCourse_(body.token, body.course));
       case 'deleteCourse':       return json(deleteCourse_(body.token, body.courseId));
+      case 'setRegFeePaid':      return json(setRegFeePaid_(body.token, body.id, body.feePaid));
+      case 'saveCourseLink':     return json(saveCourseLink_(body.token, body.link));
+      case 'deleteCourseLink':   return json(deleteCourseLink_(body.token, body.courseId));
       case 'approveVenueBooking': return json(approveVenueBooking_(body.token, body.id));
       case 'rejectVenueBooking': return json(rejectVenueBooking_(body.token, body.id));
       case 'saveVenue':          return json(saveVenue_(body.token, body.venue));
@@ -284,8 +294,33 @@ function getPublicInfo_() {
   };
 }
 
+// ═══════════════════════════════════════════════════════════
+// 服務轉發：如 Config 已設定「某服務_SCRIPT_URL」，提交／列表都會轉發去該 Script
+// 未設定 → 用本表（預設）。設定咗 → 整個服務由外邊系統處理。
+// 合約：POST { action, apiKey, ...資料 }，回傳 { ok:true, data } 或 { ok:false, error }
+// ═══════════════════════════════════════════════════════════
+function serviceCfg_(key) {
+  var url = getConfigValue_(key + '_SCRIPT_URL');
+  if (!url) return null;
+  return { url: url, apiKey: getConfigValue_(key + '_SCRIPT_APIKEY') || '' };
+}
+function callService_(key, action, payload) {
+  var cfg = serviceCfg_(key);
+  if (!cfg) return null; // 未設定 → 用本表
+  var body = { action: action, apiKey: cfg.apiKey };
+  if (payload) for (var k in payload) body[k] = payload[k];
+  var resp = UrlFetchApp.fetch(cfg.url, {
+    method: 'post', contentType: 'application/json',
+    payload: JSON.stringify(body), muteHttpExceptions: true,
+  });
+  var text = resp.getContentText();
+  try { return JSON.parse(text); } catch (e) { return { ok: false, error: 'Script 回應無法解析（HTTP ' + resp.getResponseCode() + '）' }; }
+}
+
 function listItems_() {
   if (!isFeature_('stock')) return [];
+  var r = callService_('STOCK', 'list', null);
+  if (r) return r.ok && r.data ? r.data : [];
   return readSheet_(SHEET.ITEMS).map(function (r) {
     return {
       itemId: r.itemId, category: r.category, name: r.name,
@@ -300,16 +335,129 @@ function listCourses_() {
   if (!isFeature_('course')) return [];
   return readSheet_(SHEET.COURSES).map(function (r) {
     return {
-      courseId: r.courseId, title: r.title, sessionsText: r.sessionsText,
+      courseId: r.courseId, title: r.title, section: r.section || '', badgeCode: r.badgeCode || '',
+      badgeName: r.badgeName || '', courseNo: r.courseNo || '', sessionsText: r.sessionsText,
       eligibility: r.eligibility, fee: Number(r.fee) || 0, originalFee: Number(r.originalFee) || 0,
-      deadline: r.deadline, quota: Number(r.quota) || 0, filled: Number(r.filled) || 0,
-      venue: r.venue, status: r.status, noticeUrl: r.noticeUrl, fpsNote: r.fpsNote,
+      subsidyNote: r.subsidyNote || '', deadline: r.deadline, regStartDate: r.regStartDate || '',
+      quota: Number(r.quota) || 0, filled: Number(r.filled) || 0,
+      venue: r.venue, status: r.status, noticeUrl: r.noticeUrl, fpsNote: r.fpsNote, contact: r.contact || '',
     };
   }).filter(function (c) { return c.status !== 'closed'; });
 }
 
+// 含 closed（職員用）
+function listAllCourses_(token) {
+  if (!requireStaff_(token)) return err('登入已過期');
+  return readSheet_(SHEET.COURSES).map(function (r) {
+    return {
+      courseId: r.courseId, title: r.title, section: r.section || '', badgeCode: r.badgeCode || '',
+      badgeName: r.badgeName || '', courseNo: r.courseNo || '', sessionsText: r.sessionsText,
+      eligibility: r.eligibility, fee: Number(r.fee) || 0, originalFee: Number(r.originalFee) || 0,
+      subsidyNote: r.subsidyNote || '', deadline: r.deadline, regStartDate: r.regStartDate || '',
+      quota: Number(r.quota) || 0, filled: Number(r.filled) || 0,
+      venue: r.venue, status: r.status, noticeUrl: r.noticeUrl, fpsNote: r.fpsNote, contact: r.contact || '',
+    };
+  });
+}
+
+// ===================== 課程參考資料（CourseParams） =====================
+
+function listCourseParams_() {
+  var raw = readSheet_(SHEET.COURSE_PARAMS);
+  var badges = [], sections = [], districts = [], regions = [], memberTypes = [];
+  raw.forEach(function (r) {
+    var k = r.key || '';
+    var v = r.value || '';
+    if (k === 'badge') badges.push({ code: r.code || '', group: r.group || '', nameZh: v, nameEn: r.nameEn || '', kind: r.kind || '' });
+    else if (k === 'section') sections.push(v);
+    else if (k === 'district') districts.push(v);
+    else if (k === 'region') regions.push(v);
+    else if (k === 'memberType') memberTypes.push(v);
+  });
+  return { badges: badges, sections: sections, districts: districts, regions: regions, memberTypes: memberTypes };
+}
+
+// ===================== 訓練班專屬 Script 目錄（CourseLinks） =====================
+// 每個訓練班各自有 1 張 Google Sheet + 1 份收表 Script。
+// 管理員喺 staff 後台加入該班嘅 /exec 網址 + API Key，呢度就會顯示喺 /training。
+// 報名時主 Code.gs 將資料轉發去該班嘅 Script，寫入佢自己張 Sheet。
+
+function courseLinkPublic_(r) {
+  return {
+    courseId: r.courseId, title: r.title, badgeName: r.badgeName || '', section: r.section || '',
+    courseNo: r.courseNo || '', sessionsText: r.sessionsText || '', eligibility: r.eligibility || '',
+    fee: Number(r.fee) || 0, originalFee: Number(r.originalFee) || 0, subsidyNote: r.subsidyNote || '',
+    deadline: r.deadline || '', quota: Number(r.quota) || 0, filled: Number(r.filled) || 0,
+    venue: r.venue || '', noticeUrl: r.noticeUrl || '', contact: r.contact || '',
+  };
+}
+
+// 公開：只回傳活躍課程嘅顯示資料（唔含 script url / api key）
+// 自動隱藏：active=FALSE 或 deadline 已過
+function listCourseLinks_() {
+  var now = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  return readSheet_(SHEET.COURSE_LINKS)
+    .filter(function (r) {
+      return String(r.active).toUpperCase() !== 'FALSE'
+        && (!r.deadline || String(r.deadline) >= now);
+    })
+    .map(courseLinkPublic_);
+}
+
+// 職員：連埋 script url / api key 一齊攞（管理用）
+function getCourseLinks_(token) {
+  if (!requireStaff_(token)) return err('登入已過期');
+  return readSheet_(SHEET.COURSE_LINKS).map(function (r) {
+    var o = courseLinkPublic_(r);
+    o.apiBase = r.apiBase || '';
+    o.apiKey = r.apiKey || '';
+    o.active = String(r.active).toUpperCase() !== 'FALSE';
+    return o;
+  });
+}
+
+function saveCourseLink_(token, link) {
+  if (requirePerm_(token, 'canCourse').error) return err(requirePerm_(token, 'canCourse').error);
+  if (!link || !link.title || !link.apiBase) return err('資料不完整（需課程名 + Script 網址）');
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName(SHEET.COURSE_LINKS);
+  var courseId = link.courseId || genId_('cl');
+  var idx = findRowByFirstCol_(sh, courseId);
+  var row = {
+    courseId: courseId, districtCode: districtCode_(),
+    title: link.title, badgeName: link.badgeName || '', section: link.section || '',
+    courseNo: link.courseNo || '', sessionsText: link.sessionsText || '', eligibility: link.eligibility || '',
+    fee: Number(link.fee) || 0, originalFee: Number(link.originalFee) || 0, subsidyNote: link.subsidyNote || '',
+    deadline: link.deadline || '', quota: Number(link.quota) || 0,
+    venue: link.venue || '', noticeUrl: link.noticeUrl || '', contact: link.contact || '',
+    apiBase: String(link.apiBase).trim(), apiKey: String(link.apiKey || '').trim(),
+    active: link.active === undefined || link.active ? 'TRUE' : 'FALSE',
+  };
+  if (idx > 0) {
+    ['title', 'badgeName', 'section', 'courseNo', 'sessionsText', 'eligibility', 'fee', 'originalFee', 'subsidyNote',
+     'deadline', 'quota', 'venue', 'noticeUrl', 'contact', 'apiBase', 'apiKey', 'active'].forEach(function (k) {
+      if (link[k] !== undefined || k === 'title' || k === 'apiBase') setCellByHeader_(sh, idx, k, row[k]);
+    });
+    return { saved: true, courseId: courseId };
+  }
+  row.filled = 0;
+  row.createdAt = new Date().toISOString();
+  appendRowObj_(sh, row);
+  return { saved: true, courseId: courseId };
+}
+
+function deleteCourseLink_(token, courseId) {
+  if (requirePerm_(token, 'canCourse').error) return err(requirePerm_(token, 'canCourse').error);
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.COURSE_LINKS);
+  var idx = findRowByFirstCol_(sh, courseId);
+  if (idx > 0) sh.deleteRow(idx);
+  return { deleted: true };
+}
+
 function listVenues_() {
   if (!isFeature_('venue')) return [];
+  var r = callService_('VENUE', 'list', null);
+  if (r) return r.ok && r.data ? r.data : [];
   return readSheet_(SHEET.VENUES).map(function (r) {
     return { venueId: r.venueId, name: r.name, scienerLockId: r.scienerLockId, note: r.note, active: String(r.active).toUpperCase() !== 'FALSE' };
   });
@@ -319,6 +467,8 @@ function submitStockRequest_(b) {
   if (!isFeature_('stock')) return err('服務暫未開放');
   if (!b.itemId || !b.name || !b.phone || !b.borrowDate || !b.returnDate) return err('資料不完整');
   if (!isTrue_(b.agreeRules)) return err('請先閱讀並同意借用規定');
+  var fwd = callService_('STOCK', 'addRequest', b);
+  if (fwd) { if (fwd.ok) return { refCode: (fwd.data && fwd.data.refCode) || '' }; return err(fwd.error || '借物資轉發失敗'); }
   var items = readSheet_(SHEET.ITEMS);
   var item = items.filter(function (x) { return String(x.itemId) === String(b.itemId); })[0];
   if (!item) return err('找不到此物資');
@@ -345,36 +495,56 @@ function submitStockRequest_(b) {
   return { refCode: ref };
 }
 
+// 訓練班報名：轉發去該班專屬 Script（CourseLinks 記錄咗每班嘅 /exec 網址 + API Key）
 function submitCourseReg_(b) {
-  if (!isFeature_('course')) return err('服務暫未開放');
- )) return err('服務暫未開放');
   if (!b.courseId || !b.nameZh || !b.phone || !b.email) return err('資料不完整');
-  var courses = readSheet_(SHEET.COURSES);
-  var course = courses.filter(function (x) { return String(x.courseId) === String(b.courseId); })[0];
-  var title = course ? course.title : '';
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sh = ss.getSheetByName(SHEET.COURSE_REQ);
-  var ref = genRef_('CRS');
-  var rid = genId_('crs');
-  appendRowObj_(sh, {
-    id: rid, districtCode: districtCode_(),
-    courseId: b.courseId, courseTitle: title, timestamp: new Date().toISOString(),
-    email: b.email, nameZh: b.nameZh, nameEn: b.nameEn || '', phone: b.phone,
-    gender: b.gender || '', dob: b.dob || '', scoutDistrict: b.scoutDistrict || '',
-    troop: b.troop || '', scoutId: b.scoutId || '', scoutPosition: b.scoutPosition || '',
-    note: b.note || '', guardianConsent: b.guardianConsent || '', guardianName: b.guardianName || '',
-    guardianRelation: b.guardianRelation || '', guardianEmail: b.guardianEmail || '', guardianPhone: b.guardianPhone || '',
-    leaderConsent: b.leaderConsent || '', leaderName: b.leaderName || '', leaderPosition: b.leaderPosition || '',
-    leaderEmail: b.leaderEmail || '', payMethod: b.payMethod || 'FPS', payerName: b.payerName || '',
-    payAccount: b.payAccount || '', receiptUrl: b.receiptUrl || '', formUrl: b.formUrl || '',
-    needReceipt: b.needReceipt || '', status: 'pending', refCode: ref,
+  var links = readSheet_(SHEET.COURSE_LINKS);
+  var link = links.filter(function (x) {
+    return String(x.courseId) === String(b.courseId) && String(x.active).toUpperCase() !== 'FALSE';
+  })[0];
+  if (!link) return err('找不到此訓練班或已截止報名');
+  if (!link.apiBase) return err('此訓練班未設定收表 Script，請稍後再試或聯絡職員');
+  if (Number(link.quota) > 0 && (Number(link.filled) || 0) >= Number(link.quota)) return err('此班名額已滿');
+
+  var payload = {
+    action: 'addReg',
+    apiKey: String(link.apiKey || ''),
+    courseId: b.courseId, courseTitle: link.title || '',
+    nameZh: b.nameZh, nameEn: b.nameEn || '', gender: b.gender || '', dob: b.dob || '',
+    phone: b.phone, email: b.email,
+    memberType: b.memberType || '學員', section: link.section || '', badgeCode: link.badgeCode || '',
+    scoutDistrict: b.scoutDistrict || '', region: b.region || '', troop: b.troop || '',
+    scoutId: b.scoutId || '', scoutPosition: b.scoutPosition || '',
+    guardianConsent: b.guardianConsent || '', guardianName: b.guardianName || '',
+    guardianRelation: b.guardianRelation || '', guardianEmail: b.guardianEmail || '',
+    guardianPhone: b.guardianPhone || '',
+    leaderConsent: b.leaderConsent || '', leaderName: b.leaderName || '',
+    leaderPosition: b.leaderPosition || '', leaderEmail: b.leaderEmail || '',
+    payMethod: b.payMethod || 'FPS', payerName: b.payerName || '', payAccount: b.payAccount || '',
+    receiptUrl: b.receiptUrl || '', needReceipt: b.needReceipt || '', note: b.note || '',
+  };
+
+  var resp = UrlFetchApp.fetch(link.apiBase, {
+    method: 'post',
+    contentType: 'application/json',
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true,
   });
-  if (course) {
-    var rowIdx = findRowByFirstCol_(ss.getSheetByName(SHEET.COURSES), b.courseId);
-    if (rowIdx > 0) setCellByHeader_(ss.getSheetByName(SHEET.COURSES), rowIdx, 'filled', (Number(course.filled) || 0) + 1);
+  var text = resp.getContentText();
+  var result = {};
+  try { result = JSON.parse(text); } catch (e) {}
+  if (!result.ok) {
+    return err((result && result.error) || '訓練班收表失敗（HTTP ' + resp.getResponseCode() + '）');
   }
-  appendRecord_('course', rid, ref, '🎓 報班：' + title, b.nameZh, b.phone, b.troop || '', 'pending', '付款：' + (b.payMethod || 'FPS') + (b.receiptUrl ? '（已交入數紙）' : '（未交）'));
-  notifyStaff_('🎓 新報班', '班：' + title + '\n學員：' + b.nameZh + '（' + b.phone + '）');
+  var ref = (result.data && result.data.refCode) || '';
+
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.COURSE_LINKS);
+  var idx = findRowByFirstCol_(sh, b.courseId);
+  if (idx > 0) setCellByHeader_(sh, idx, 'filled', (Number(link.filled) || 0) + 1);
+
+  appendRecord_('course', genId_('crs'), ref, '🎓 報班：' + (link.title || b.courseId), b.nameZh, b.phone, b.troop || '', 'filed',
+    '已轉發至訓練班專屬表 · ' + (b.memberType || '學員') + (b.receiptUrl ? '（已交入數紙）' : '（未交）'));
+  notifyStaff_('🎓 新訓練班報名', '班：' + (link.title || b.courseId) + '\n學員：' + b.nameZh + '（' + b.phone + '）');
   return { refCode: ref };
 }
 
@@ -382,6 +552,8 @@ function submitVenueRequest_(b) {
   if (!isFeature_('venue')) return err('服務暫未開放');
   if (!b.venueId || !b.name || !b.phone || !b.startDate || !b.endDate) return err('資料不完整');
   if (!isTrue_(b.agreeRules)) return err('請先閱讀並同意借用規定');
+  var fwd = callService_('VENUE', 'addRequest', b);
+  if (fwd) { if (fwd.ok) return { refCode: (fwd.data && fwd.data.refCode) || '' }; return err(fwd.error || '借場轉發失敗'); }
   var venues = readSheet_(SHEET.VENUES);
   var venue = venues.filter(function (x) { return String(x.venueId) === String(b.venueId); })[0];
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -412,6 +584,8 @@ function submitActivityNotice_(b) {
   if (!b.startDateTime || !b.endDateTime) return err('請填活動日期及時間');
   var sections = Array.isArray(b.sections) ? b.sections.filter(Boolean) : [];
   if (sections.length === 0) return err('請選擇至少一個活動支部');
+  var fwd = callService_('ACTIVITY', 'addNotice', b);
+  if (fwd) { if (fwd.ok) return { refCode: (fwd.data && fwd.data.refCode) || '' }; return err(fwd.error || '活動知會轉發失敗'); }
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sh = ss.getSheetByName(SHEET.ACTIVITY_REQ);
   var ref = genRef_('ACT');
@@ -550,7 +724,7 @@ function setStockRequestStatus_(token, id, status) {
   var rowIdx = findRowByFirstCol_(sh, id);
   if (rowIdx > 0) setCellByHeader_(sh, rowIdx, 'status', status);
   updateRecordStatus_(id, status);
-  if (status === 'rejected') {
+  if (status === 'rejected' || status === 'returned') {
     var ish = ss.getSheetByName(SHEET.ITEMS);
     var iIdx = findRowByFirstCol_(ish, r.itemId);
     if (iIdx > 0) {
@@ -614,6 +788,17 @@ function setCourseRegStatus_(token, id, status) {
   return { saved: true };
 }
 function getCourses_(token) { if (requirePerm_(token, 'canCourse').error) return err(requirePerm_(token, 'canCourse').error); return readSheet_(SHEET.COURSES); }
+// 標記報名已收費（舊統一表用；訓練班專屬表由各班 Script 自己管理）
+function setRegFeePaid_(token, id, feePaid) {
+  if (requirePerm_(token, 'canCourse').error) return err(requirePerm_(token, 'canCourse').error);
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.COURSE_REQ);
+  var idx = findRowByFirstCol_(sh, id);
+  if (idx > 0) {
+    setCellByHeader_(sh, idx, 'feePaid', feePaid ? 'TRUE' : 'FALSE');
+    if (feePaid) setCellByHeader_(sh, idx, 'paidAt', new Date().toISOString());
+  }
+  return { saved: true };
+}
 function saveCourse_(token, course) {
   if (requirePerm_(token, 'canCourse').error) return err(requirePerm_(token, 'canCourse').error);
   if (!course || !course.title) return err('資料不完整');
@@ -879,6 +1064,16 @@ function setupSheets() {
     ['NOTIFY_STAFF_EMAIL', '', '新申請通知對象'],
     // 旅號清單
     ['TROOP_LIST', DEFAULT_TROOP_LIST, '旅號清單（逗號分隔），活動知會表用'],
+    // ═══════════════════════════════════════════════════════
+    // 各系統 Script URL 預留位（貼上後，表單會自動轉發去該系統）
+    // 未填 = 寫入本表；填咗 = 轉發去該 Script（POST {action, apiKey, ...資料}）
+    // ═══════════════════════════════════════════════════════
+    ['STOCK_SCRIPT_URL', '', '【借物資】收表 Script 網址（留空 = 寫入本表）'],
+    ['STOCK_SCRIPT_APIKEY', '', '【借物資】收表 Script API Key'],
+    ['VENUE_SCRIPT_URL', '', '【借場】收表 Script 網址（留空 = 寫入本表）'],
+    ['VENUE_SCRIPT_APIKEY', '', '【借場】收表 Script API Key'],
+    ['ACTIVITY_SCRIPT_URL', '', '【活動知會】收表 Script 網址（留空 = 寫入本表）'],
+    ['ACTIVITY_SCRIPT_APIKEY', '', '【活動知會】收表 Script API Key'],
   ];
   defaults.forEach(function (row) {
     var key = row[0];
@@ -893,6 +1088,9 @@ function setupSheets() {
   ensureSheet_(ss, SHEET.VENUE_REQ, [['id', 'districtCode', 'venueId', 'venueName', 'teamupEventId', 'startDate', 'endDate', 'name', 'phone', 'email', 'troop', 'purpose', 'position', 'agreeRules', 'status', 'pwdRef', 'refCode', 'createdAt']]);
   ensureSheet_(ss, SHEET.COURSES, [['courseId', 'districtCode', 'title', 'sessionsText', 'eligibility', 'fee', 'originalFee', 'deadline', 'quota', 'filled', 'venue', 'status', 'noticeUrl', 'fpsNote']]);
   ensureSheet_(ss, SHEET.COURSE_REQ, [['id', 'districtCode', 'courseId', 'courseTitle', 'timestamp', 'email', 'nameZh', 'nameEn', 'phone', 'gender', 'dob', 'scoutDistrict', 'troop', 'scoutId', 'scoutPosition', 'note', 'guardianConsent', 'guardianName', 'guardianRelation', 'guardianEmail', 'guardianPhone', 'leaderConsent', 'leaderName', 'leaderPosition', 'leaderEmail', 'payMethod', 'payerName', 'payAccount', 'receiptUrl', 'formUrl', 'needReceipt', 'status', 'refCode']]);
+  ensureSheet_(ss, SHEET.COURSE_LINKS, [['courseId', 'districtCode', 'title', 'badgeName', 'section', 'courseNo', 'sessionsText', 'eligibility', 'fee', 'originalFee', 'subsidyNote', 'deadline', 'quota', 'filled', 'venue', 'noticeUrl', 'contact', 'apiBase', 'apiKey', 'active', 'createdAt']]);
+  ensureSheet_(ss, SHEET.COURSE_PARAMS, [['key', 'group', 'code', 'value', 'nameEn', 'kind']]);
+  seedCourseParams_(ss);
   ensureSheet_(ss, SHEET.ACTIVITY_REQ, [['id', 'districtCode', 'refCode', 'troop', 'activityName', 'sections', 'nature', 'startDateTime', 'endDateTime', 'location', 'membersCount', 'leadersCount', 'parentsCount', 'leaderName', 'leaderPhone', 'leaderEmail', 'note', 'createdAt']]);
   ensureSheet_(ss, SHEET.ALL_RECORDS, [['id', 'districtCode', 'type', 'refCode', 'title', 'requester', 'phone', 'troop', 'status', 'detail', 'createdAt']]);
 
@@ -950,6 +1148,19 @@ function seedSampleItems_(ss) {
       unit: s[4], note: s[5], location: s[6], active: 'TRUE',
     });
   });
+}
+
+// 訓練班報名表下拉選單嘅預設資料（區／地域／支部／身份）
+// 徽章清單（badge）日後可從參考表貼入：key=badge, group=組別, code=徽章代碼, value=中文名, nameEn=英文名
+function seedCourseParams_(ss) {
+  var sh = ss.getSheetByName(SHEET.COURSE_PARAMS);
+  if (!sh || sh.getLastRow() > 1) return;
+  var rows = [];
+  ['小童軍', '幼童軍', '童軍', '深資童軍', '樂行童軍'].forEach(function (v) { rows.push(['section', '', '', v, '', '']); });
+  ['筲箕灣', '柴灣', '港島北', '港島南', '灣仔', '維城', '港島西', '深水埗', '九龍城', '觀塘', '沙田', '荃灣', '屯門', '元朗', '大埔', '北區', '離島'].forEach(function (v) { rows.push(['district', '', '', v, '', '']); });
+  ['港島', '九龍', '東九龍', '新界東', '新界', '離島'].forEach(function (v) { rows.push(['region', '', '', v, '', '']); });
+  ['學員', '領袖'].forEach(function (v) { rows.push(['memberType', '', '', v, '', '']); });
+  if (rows.length) sh.getRange(2, 1, rows.length, 6).setValues(rows);
 }
 
 function ensureSheet_(ss, name, headerRows) {

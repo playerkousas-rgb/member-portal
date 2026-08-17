@@ -11,7 +11,7 @@
  */
 
 export const PLATFORM_NAME = '成員服務門戶';
-export const PLATFORM_COPYRIGHT = '© 2026 SKWSCOUT SYSTEM';
+export const PLATFORM_COPYRIGHT = '© 2026 Scout System · 版權所有 不得轉載';
 export const DISTRICT_STORAGE_KEY = 'member_selected_district';
 export const DEFAULT_DISABLED_MESSAGE = '此區服務現正暫停。請留意區方通知，或稍後再試。';
 

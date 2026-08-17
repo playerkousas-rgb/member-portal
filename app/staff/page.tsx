@@ -2,9 +2,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '@/lib/api';
 import { loadSession, saveSession, clearSession } from '@/lib/session';
-import type { StaffSession, StockRequest, CourseReg, VenueBooking, Item, Course, Venue, StaffInfo, ActivityNotice, AllRecord } from '@/lib/types';
+import type { StaffSession, StockRequest, CourseReg, VenueBooking, Item, Course, Venue, StaffInfo, ActivityNotice, AllRecord, CourseLink } from '@/lib/types';
 
-type Tab = 'venue' | 'stock' | 'course' | 'items' | 'courses' | 'venues' | 'activity' | 'records' | 'staff' | 'password';
+type Tab = 'venue' | 'stock' | 'course' | 'items' | 'courses' | 'venues' | 'activity' | 'records' | 'staff' | 'password' | 'courseLinks';
 
 const STATUS_PILL: Record<string, string> = {
   pending: 'pending', approved: 'approved', confirmed: 'confirmed', rejected: 'rejected',
@@ -42,6 +42,7 @@ export default function StaffPage() {
     if (session.canVenue) t.push('venue', 'venues');
     if (session.canStock) t.push('stock', 'items');
     if (session.canCourse) t.push('course', 'courses');
+    if (session.canCourse) t.push('courseLinks'); // 訓練班 Script 管理
     t.push('activity', 'records'); // 活動知會 + 統一紀錄：所有職員可睇
     if (session.canStaff) t.push('staff');
     t.push('password');
@@ -87,6 +88,7 @@ export default function StaffPage() {
     venue: '🏛 借場待批', stock: '📦 借物資待批', course: '🎓 報班待批',
     items: '📦 物資管理', courses: '🎓 班管理', venues: '🏛 場地管理',
     activity: '📋 活動知會', records: '🗂 查核紀錄', staff: '👥 帳戶管理', password: '🔑 改密碼',
+    courseLinks: '🎓 訓練班管理',
   };
 
   return (
@@ -113,6 +115,7 @@ export default function StaffPage() {
         {tab === 'course' && <CourseApprovals token={session.token} onDone={setMsg} />}
         {tab === 'items' && <ItemsAdmin token={session.token} onDone={setMsg} />}
         {tab === 'courses' && <CoursesAdmin token={session.token} onDone={setMsg} />}
+        {tab === 'courseLinks' && <CourseLinksAdmin token={session.token} onDone={setMsg} />}
         {tab === 'venues' && <VenuesAdmin token={session.token} onDone={setMsg} />}
         {tab === 'activity' && <ActivityNotices token={session.token} />}
         {tab === 'records' && <RecordsAdmin session={session} onDone={setMsg} />}
@@ -353,6 +356,143 @@ function CoursesAdmin({ token, onDone }: { token: string; onDone: (m: string) =>
               <tr key={c.courseId}>
                 <td>{c.title}</td><td>${c.fee}</td><td>{c.quota}</td><td>{c.deadline}</td><td>{c.filled}</td>
                 <td className="actions"><button className="btn-ghost danger" onClick={() => del(c.courseId)}>刪除</button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
+/* ============ 訓練班 Script 管理（每班各自嘅收表 Script） ============ */
+function CourseLinksAdmin({ token, onDone }: { token: string; onDone: (m: string) => void }) {
+  const [rows, setRows] = useState<CourseLink[]>([]);
+  const [f, setF] = useState<Record<string, any>>({
+    courseId: '', title: '', badgeName: '', section: '', courseNo: '', sessionsText: '',
+    eligibility: '', fee: 0, originalFee: 0, subsidyNote: '', deadline: '', quota: 0,
+    venue: '', noticeUrl: '', contact: '', apiBase: '', apiKey: '', active: true,
+  });
+  const [editing, setEditing] = useState(false);
+  const [busyId, setBusyId] = useState('');
+
+  async function reload() {
+    const r = await api.getCourseLinks(token);
+    if (r.ok && r.data) setRows(r.data);
+    else onDone(r.error || '載入失敗');
+  }
+  useEffect(() => { reload(); }, []);
+
+  function resetForm() {
+    setF({ courseId: '', title: '', badgeName: '', section: '', courseNo: '', sessionsText: '', eligibility: '', fee: 0, originalFee: 0, subsidyNote: '', deadline: '', quota: 0, venue: '', noticeUrl: '', contact: '', apiBase: '', apiKey: '', active: true });
+    setEditing(false);
+  }
+  async function save() {
+    if (!f.title || !f.apiBase) { onDone('請填課程名同 Script 網址'); return; }
+    const r = await api.saveCourseLink(token, f);
+    if (r.ok) { onDone(editing ? '已更新' : '已新增'); resetForm(); reload(); }
+    else onDone(r.error || '儲存失敗');
+  }
+  function edit(s: CourseLink) {
+    setEditing(true);
+    setF({ ...s });
+    window.scrollTo(0, 0);
+  }
+  async function del(id: string) {
+    if (!window.confirm('確定刪除呢個訓練班？')) return;
+    const r = await api.deleteCourseLink(token, id);
+    if (r.ok) { onDone('已刪除'); reload(); } else onDone(r.error || '刪除失敗');
+  }
+  async function toggleActive(s: CourseLink) {
+    setBusyId(s.courseId);
+    const r = await api.saveCourseLink(token, { ...s, active: !s.active });
+    setBusyId('');
+    if (r.ok) { onDone(s.active ? '已隱藏（不再顯示喺報名頁）' : '已顯示（重新開放報名）'); reload(); }
+    else onDone(r.error || '更新失敗');
+  }
+
+  return (
+    <>
+      <div className="panel">
+        <h2>{editing ? `編輯：${f.title}` : '新增訓練班（收表 Script）'}</h2>
+        <p style={{ fontSize: 12, color: '#64748b', marginBottom: 12 }}>
+          💡 每個訓練班各自有 1 張 Google Sheet + 1 份收表 Script。負責人喺「⬇️ 下載」攞 <code>Code.gs.course</code> 模板建立後，
+          喺呢度加入佢嘅 /exec 網址 + API Key，個班就會顯示喺 <code>/training</code> 俾人報名。
+        </p>
+        <div className="frow">
+          <div className="field"><label>課程名 <span className="req">*</span></label>
+            <input value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></div>
+          <div className="field"><label>徽章名（可選）</label>
+            <input value={f.badgeName} onChange={(e) => setF({ ...f, badgeName: e.target.value })} placeholder="例：原野烹飪" /></div>
+        </div>
+        <div className="frow">
+          <div className="field"><label>支部（可選）</label>
+            <input value={f.section} onChange={(e) => setF({ ...f, section: e.target.value })} placeholder="例：深資童軍" /></div>
+          <div className="field"><label>訓練班編號（可選）</label>
+            <input value={f.courseNo} onChange={(e) => setF({ ...f, courseNo: e.target.value })} placeholder="例：SAL" /></div>
+        </div>
+        <div className="field"><label>節次（每行一節：日期 時間 地點）</label>
+          <textarea value={f.sessionsText} onChange={(e) => setF({ ...f, sessionsText: e.target.value })} placeholder={'2026-01-21 19:00-22:00 筲箕灣區總部\n2026-02-07 10:00-16:00 大潭童軍中心'} /></div>
+        <div className="field"><label>參加資格</label>
+          <textarea value={f.eligibility} onChange={(e) => setF({ ...f, eligibility: e.target.value })} placeholder="例：已宣誓及持有有效紀錄冊之深資童軍支部成員" /></div>
+        <div className="frow3">
+          <div className="field"><label>費用（實收）</label>
+            <input type="number" value={f.fee || 0} onChange={(e) => setF({ ...f, fee: Number(e.target.value) })} /></div>
+          <div className="field"><label>原價（如有資助）</label>
+            <input type="number" value={f.originalFee || 0} onChange={(e) => setF({ ...f, originalFee: Number(e.target.value) })} /></div>
+          <div className="field"><label>名額（0 = 不限）</label>
+            <input type="number" value={f.quota || 0} onChange={(e) => setF({ ...f, quota: Number(e.target.value) })} /></div>
+        </div>
+        <div className="frow">
+          <div className="field"><label>資助說明（可選）</label>
+            <input value={f.subsidyNote} onChange={(e) => setF({ ...f, subsidyNote: e.target.value })} placeholder="例：獲訓練資助計劃資助，費用減半" /></div>
+          <div className="field"><label>截止日期</label>
+            <input type="date" value={f.deadline} onChange={(e) => setF({ ...f, deadline: e.target.value })} /></div>
+        </div>
+        <div className="frow">
+          <div className="field"><label>地點（可選）</label>
+            <input value={f.venue} onChange={(e) => setF({ ...f, venue: e.target.value })} /></div>
+          <div className="field"><label>通告連結（可選）</label>
+            <input value={f.noticeUrl} onChange={(e) => setF({ ...f, noticeUrl: e.target.value })} placeholder="https://…" /></div>
+        </div>
+        <div className="field"><label>查詢聯絡（可選）</label>
+          <input value={f.contact} onChange={(e) => setF({ ...f, contact: e.target.value })} placeholder="例：區會職員 1234 5678" /></div>
+        <div className="frow">
+          <div className="field"><label>收表 Script 網址（/exec） <span className="req">*</span></label>
+            <input value={f.apiBase} onChange={(e) => setF({ ...f, apiBase: e.target.value })} placeholder="https://script.google.com/macros/s/…/exec" /></div>
+          <div className="field"><label>該班 API Key <span className="req">*</span></label>
+            <input value={f.apiKey} onChange={(e) => setF({ ...f, apiKey: e.target.value })} placeholder="ck_…" /></div>
+        </div>
+        <div className="field">
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+            <input type="checkbox" checked={!!f.active} onChange={(e) => setF({ ...f, active: e.target.checked })} />
+            開放報名（顯示喺 /training）
+          </label>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn-sm" onClick={save}>{editing ? '儲存變更' : '新增訓練班'}</button>
+          {editing && <button className="btn-ghost" onClick={resetForm}>取消</button>}
+        </div>
+      </div>
+
+      <div className="tbl-wrap">
+        <table className="tbl">
+          <thead><tr><th>課程</th><th>徽章/支部</th><th>名額</th><th>截止</th><th>Script 網址</th><th>狀態</th><th className="actions">動作</th></tr></thead>
+          <tbody>
+            {rows.length === 0 && <tr><td colSpan={7} className="empty">未有訓練班。</td></tr>}
+            {rows.map((s) => (
+              <tr key={s.courseId}>
+                <td><b>{s.title}</b>{s.courseNo ? <div style={{ fontSize: 11, color: '#94a3b8' }}>{s.courseNo}</div> : null}</td>
+                <td>{s.badgeName}{s.section ? <div style={{ fontSize: 11, color: '#94a3b8' }}>{s.section}</div> : null}</td>
+                <td>{s.quota > 0 ? `${s.filled}/${s.quota}` : `${s.filled}（不限）`}</td>
+                <td>{s.deadline || '—'}</td>
+                <td style={{ fontSize: 11, wordBreak: 'break-all', maxWidth: 220 }}>{s.apiBase}</td>
+                <td><span className={`pill ${s.active ? 'approved' : 'rejected'}`}>{s.active ? '開放' : '隱藏'}</span></td>
+                <td className="actions">
+                  <button className="btn-ghost" disabled={busyId === s.courseId} onClick={() => toggleActive(s)}>{s.active ? '隱藏' : '開放'}</button>{' '}
+                  <button className="btn-ghost" onClick={() => edit(s)}>編輯</button>{' '}
+                  <button className="btn-ghost danger" onClick={() => del(s.courseId)}>刪除</button>
+                </td>
               </tr>
             ))}
           </tbody>

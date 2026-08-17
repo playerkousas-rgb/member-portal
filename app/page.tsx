@@ -15,8 +15,8 @@ const SERVICES = [
     tag: '自助', external: false,
   },
   {
-    href: '/course', icon: '🎓', title: '報讀訓練班',
-    desc: '瀏覽開辦中嘅班，網上報名，FPS 繳費後上傳入數紙。',
+    href: '/training', icon: '🎓', title: '訓練班報名',
+    desc: '瀏覽開辦中嘅訓練班，網上報名，FPS 繳費後上傳入數紙。',
     tag: '自助', external: false,
   },
   {
@@ -28,6 +28,11 @@ const SERVICES = [
     href: '/activity', icon: '📋', title: '旅團活動知會',
     desc: '戶外活動（參觀、露營、遠足）書面知會區會存檔，直接喺呢度填表。',
     tag: '自助', external: false,
+  },
+  {
+    href: 'https://scout-circulars.vercel.app/', icon: '📢', title: '查看通告',
+    desc: '瀏覽區會最新通告及資訊（跳轉至通告系統）。',
+    tag: '外連', external: true,
   },
 ];
 
@@ -65,7 +70,7 @@ export default function HomePage() {
     <>
       <div className="hero">
         <h1>{district?.name} — 成員服務 👋</h1>
-        <p>呢度係區為旅團及成員提供嘅自助服務。大部分服務填表即可提交，無需登入；由區職員喺後台批核。</p>
+        <p>呢度係區為旅團及成員提供嘅自助服務入口。填表即可提交，無需登入；區會收到後會跟進處理。</p>
       </div>
 
       <div className="grid">
