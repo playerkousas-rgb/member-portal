@@ -21,10 +21,8 @@ const ALL_NAV_ITEMS = [
   { href: '/downloads', label: '⬇️ 下載' },
 ];
 
-// 單區模式：隱藏「區接入」「使用地區」等對外呈現多區的入口
-const navItems = MULTI_DISTRICT_MODE
-  ? ALL_NAV_ITEMS
-  : ALL_NAV_ITEMS.filter((it) => it.href === '/' || it.href === '/updates' || it.href === '/downloads');
+// 單區模式：隱藏全部導航（主控台／區接入／使用地區／更新／下載）
+const navItems = MULTI_DISTRICT_MODE ? ALL_NAV_ITEMS : [];
 
 export default function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -83,13 +81,15 @@ export default function Shell({ children }: { children: React.ReactNode }) {
             {MULTI_DISTRICT_MODE && districtCode && <button className="ghost" onClick={clearDistrict}>清除地區</button>}
           </div>
         </div>
-        <nav className="shell-nav">
-          {navItems.map((it) => (
-            <Link key={it.href} href={withDistrict(it.href)} className={pathname === it.href ? 'active' : ''}>
-              {it.label}
-            </Link>
-          ))}
-        </nav>
+        {navItems.length > 0 && (
+          <nav className="shell-nav">
+            {navItems.map((it) => (
+              <Link key={it.href} href={withDistrict(it.href)} className={pathname === it.href ? 'active' : ''}>
+                {it.label}
+              </Link>
+            ))}
+          </nav>
+        )}
       </header>
 
       <main className="shell-main">

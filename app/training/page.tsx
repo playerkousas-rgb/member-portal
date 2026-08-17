@@ -3,9 +3,39 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { getStoredDistrictCode, setStoredDistrictCode } from '@/lib/district';
+import { SCOUT_DISTRICTS, SCOUT_REGIONS, SCOUT_SECTIONS } from '@/lib/scout';
 import type { CourseLink, CourseParams, PublicInfo } from '@/lib/types';
 
 const empty = (s: string) => !s || s.trim() === '';
+
+// 讀入數紙截圖 → 縮細至可上傳大小（base64 dataURL）
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('讀取檔案失敗'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function processReceiptFile(file: File, maxDim = 1600, quality = 0.72): Promise<{ dataUrl: string; mimeType: string }> {
+  const raw = await fileToDataUrl(file);
+  const img = new Image();
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error('無法解析圖片'));
+    img.src = raw;
+  });
+  const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+  const w = Math.max(1, Math.round(img.width * scale));
+  const h = Math.max(1, Math.round(img.height * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('不支援圖片處理');
+  ctx.drawImage(img, 0, 0, w, h);
+  return { dataUrl: canvas.toDataURL('image/jpeg', quality), mimeType: 'image/jpeg' };
+}
 
 export default function TrainingPage() {
   const [links, setLinks] = useState<CourseLink[]>([]);
@@ -15,7 +45,7 @@ export default function TrainingPage() {
 
   // 報名表
   const [courseId, setCourseId] = useState('');
-  const [memberType, setMemberType] = useState('學員');
+  const [memberType, setMemberType] = useState('');
   const [nameZh, setNameZh] = useState('');
   const [nameEn, setNameEn] = useState('');
   const [gender, setGender] = useState('');
@@ -38,8 +68,9 @@ export default function TrainingPage() {
   const [leaderEmail, setLeaderEmail] = useState('');
   const [payerName, setPayerName] = useState('');
   const [payAccount, setPayAccount] = useState('');
-  const [receiptUrl, setReceiptUrl] = useState('');
-  const [needReceipt, setNeedReceipt] = useState('是');
+  const [receiptFile, setReceiptFile] = useState<{ name: string; dataUrl: string; mimeType: string } | null>(null);
+  const [receiptBusy, setReceiptBusy] = useState(false);
+  const [needReceipt, setNeedReceipt] = useState('否');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -54,10 +85,9 @@ export default function TrainingPage() {
   }, []);
 
   const selected = useMemo(() => links.find((c) => c.courseId === courseId), [links, courseId]);
-  const sections = params?.sections || [];
-  const districts = params?.districts || [];
-  const regions = params?.regions || [];
-  const memberTypes = params?.memberTypes?.length ? params.memberTypes : ['學員', '領袖'];
+  const sections = params?.sections?.length ? params.sections : SCOUT_SECTIONS;
+  const districts = params?.districts?.length ? params.districts : SCOUT_DISTRICTS;
+  const regions = params?.regions?.length ? params.regions : SCOUT_REGIONS;
 
   function pickCourse(id: string) {
     setCourseId(id);
@@ -67,8 +97,12 @@ export default function TrainingPage() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
-    if (empty(courseId) || empty(nameZh) || empty(phone) || empty(email)) {
-      setError('請填妥必填項目（課程、中文姓名、電話、電郵）。');
+    if (empty(courseId) || empty(nameZh) || empty(phone) || empty(email) || empty(memberType)) {
+      setError('請填妥必填項目（課程、支部、中文姓名、電話、電郵）。');
+      return;
+    }
+    if (!receiptFile) {
+      setError('請上傳入數紙截圖。未繳費將不獲處理申請。');
       return;
     }
     setBusy(true);
@@ -79,11 +113,30 @@ export default function TrainingPage() {
       guardianName, guardianRelation, guardianPhone, guardianEmail,
       leaderConsent: leaderConsent ? 'TRUE' : '',
       leaderName, leaderPosition, leaderEmail,
-      payerName, payAccount, receiptUrl, needReceipt, note,
+      payerName, payAccount, needReceipt, note,
+      receiptFileName: receiptFile.name,
+      receiptMimeType: receiptFile.mimeType,
+      receiptDataUrl: receiptFile.dataUrl,
     });
     setBusy(false);
     if (r.ok && r.data) { setDoneRef(r.data.refCode); setDoneTitle(selected?.title || ''); window.scrollTo(0, 0); }
     else setError(r.error || '提交失敗，請稍後再試。');
+  }
+
+  async function onReceiptChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files && e.target.files[0];
+    setError('');
+    if (!file) return;
+    if (!/^image\//.test(file.type)) { setError('請上傳圖片檔案（JPG／PNG）。'); return; }
+    setReceiptBusy(true);
+    try {
+      const { dataUrl, mimeType } = await processReceiptFile(file);
+      setReceiptFile({ name: file.name, dataUrl, mimeType });
+    } catch {
+      setError('圖片處理失敗，請再試。');
+    } finally {
+      setReceiptBusy(false);
+    }
   }
 
   if (doneRef) {
@@ -96,13 +149,11 @@ export default function TrainingPage() {
           報名編號：<b style={{ color: '#003366' }}>{doneRef}</b>
         </p>
         <p style={{ color: '#64748b', fontSize: 13, marginTop: 10 }}>
-          {empty(receiptUrl)
-            ? '請盡快以轉數快繳費，並補交入數紙（可透過區會職員）。'
-            : '已收到你嘅入數紙，職員核對後會以電郵確認。'}
+          已收到你嘅入數紙，職員核對後會以電郵確認。
         </p>
         <div style={{ marginTop: 20 }}>
           <Link href="/" className="btn-ghost">返回首頁</Link>{' '}
-          <button className="btn-sm" onClick={() => { setDoneRef(''); setCourseId(''); setReceiptUrl(''); }}>再報名</button>
+          <button className="btn-sm" onClick={() => { setDoneRef(''); setCourseId(''); setReceiptFile(null); }}>再報名</button>
         </div>
       </div>
     );
@@ -112,7 +163,7 @@ export default function TrainingPage() {
     <>
       <Link href="/" className="backlink">← 返回服務首頁</Link>
       <h1 className="page-title">🎓 訓練班報名</h1>
-      <p className="page-sub">揀你想報嘅訓練班，填表報名。繳費以轉數快（FPS）進行，繳費後上傳入數紙。</p>
+      <p className="page-sub">揀你想報嘅訓練班，填表報名。繳費以轉數快（FPS）進行，報名時必須上傳入數紙，未繳費將不獲處理。</p>
 
       <div className="panel">
         <h2>開辦中嘅訓練班</h2>
@@ -162,9 +213,10 @@ export default function TrainingPage() {
             </select>
           </div>
           <div className="field">
-            <label>身份 <span className="req">*</span></label>
+            <label>支部 <span className="req">*</span></label>
             <select value={memberType} onChange={(e) => setMemberType(e.target.value)}>
-              {memberTypes.map((m) => <option key={m} value={m}>{m}</option>)}
+              <option value="">— 請選擇 —</option>
+              {sections.map((m) => <option key={m} value={m}>{m}</option>)}
             </select>
           </div>
         </div>
@@ -203,15 +255,15 @@ export default function TrainingPage() {
         </div>
 
         <div className="frow">
+          <div className="field"><label>所屬童軍地域</label>
+            <select value={region} onChange={(e) => setRegion(e.target.value)}>
+              <option value="">—</option>
+              {regions.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select></div>
           <div className="field"><label>所屬童軍區</label>
             <select value={scoutDistrict} onChange={(e) => setScoutDistrict(e.target.value)}>
               <option value="">—</option>
               {districts.map((d) => <option key={d} value={d}>{d}</option>)}
-            </select></div>
-          <div className="field"><label>地域</label>
-            <select value={region} onChange={(e) => setRegion(e.target.value)}>
-              <option value="">—</option>
-              {regions.map((r) => <option key={r} value={r}>{r}</option>)}
             </select></div>
         </div>
         <div className="frow">
@@ -274,13 +326,19 @@ export default function TrainingPage() {
             <div className="field"><label>付款帳戶（FPS 識別）</label>
               <input value={payAccount} onChange={(e) => setPayAccount(e.target.value)} placeholder="電話 / FPS ID" /></div>
           </div>
-          <div className="field"><label>入數紙截圖連結（Google Drive 分享連結）</label>
-            <input value={receiptUrl} onChange={(e) => setReceiptUrl(e.target.value)} placeholder="https://drive.google.com/open?id=…" />
-            <div className="helptext">如未繳費可稍後補交，或直接 WhatsApp 俾職員。</div>
+          <div className="field"><label>入數紙截圖 <span className="req">*</span></label>
+            <input type="file" accept="image/*" onChange={onReceiptChange} />
+            <div className="helptext">上傳後會存入訓練班嘅雲端資料夾。必須報名時上傳，未繳費將不獲處理申請。</div>
+            {receiptBusy && <div className="helptext">處理中…</div>}
+            {receiptFile && (
+              <div className="helptext" style={{ color: '#166534', fontWeight: 700 }}>
+                ✅ 已上傳：{receiptFile.name}
+              </div>
+            )}
           </div>
           <div className="field"><label>需要收據？</label>
             <select value={needReceipt} onChange={(e) => setNeedReceipt(e.target.value)}>
-              <option>是</option><option>否</option>
+              <option>否</option><option>是</option>
             </select></div>
         </div>
 

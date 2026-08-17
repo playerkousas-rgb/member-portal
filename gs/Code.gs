@@ -498,6 +498,8 @@ function submitStockRequest_(b) {
 // 訓練班報名：轉發去該班專屬 Script（CourseLinks 記錄咗每班嘅 /exec 網址 + API Key）
 function submitCourseReg_(b) {
   if (!b.courseId || !b.nameZh || !b.phone || !b.email) return err('資料不完整');
+  if (!b.memberType) return err('請選擇所屬支部');
+  if (!b.receiptDataUrl) return err('請上傳入數紙截圖。未繳費將不獲處理申請');
   var links = readSheet_(SHEET.COURSE_LINKS);
   var link = links.filter(function (x) {
     return String(x.courseId) === String(b.courseId) && String(x.active).toUpperCase() !== 'FALSE';
@@ -512,7 +514,7 @@ function submitCourseReg_(b) {
     courseId: b.courseId, courseTitle: link.title || '',
     nameZh: b.nameZh, nameEn: b.nameEn || '', gender: b.gender || '', dob: b.dob || '',
     phone: b.phone, email: b.email,
-    memberType: b.memberType || '學員', section: link.section || '', badgeCode: link.badgeCode || '',
+    memberType: b.memberType || '', section: link.section || '', badgeCode: link.badgeCode || '',
     scoutDistrict: b.scoutDistrict || '', region: b.region || '', troop: b.troop || '',
     scoutId: b.scoutId || '', scoutPosition: b.scoutPosition || '',
     guardianConsent: b.guardianConsent || '', guardianName: b.guardianName || '',
@@ -521,7 +523,8 @@ function submitCourseReg_(b) {
     leaderConsent: b.leaderConsent || '', leaderName: b.leaderName || '',
     leaderPosition: b.leaderPosition || '', leaderEmail: b.leaderEmail || '',
     payMethod: b.payMethod || 'FPS', payerName: b.payerName || '', payAccount: b.payAccount || '',
-    receiptUrl: b.receiptUrl || '', needReceipt: b.needReceipt || '', note: b.note || '',
+    receiptFileName: b.receiptFileName || '', receiptMimeType: b.receiptMimeType || 'image/jpeg',
+    receiptDataUrl: b.receiptDataUrl || '', needReceipt: b.needReceipt || '', note: b.note || '',
   };
 
   var resp = UrlFetchApp.fetch(link.apiBase, {
@@ -543,8 +546,8 @@ function submitCourseReg_(b) {
   if (idx > 0) setCellByHeader_(sh, idx, 'filled', (Number(link.filled) || 0) + 1);
 
   appendRecord_('course', genId_('crs'), ref, '🎓 報班：' + (link.title || b.courseId), b.nameZh, b.phone, b.troop || '', 'filed',
-    '已轉發至訓練班專屬表 · ' + (b.memberType || '學員') + (b.receiptUrl ? '（已交入數紙）' : '（未交）'));
-  notifyStaff_('🎓 新訓練班報名', '班：' + (link.title || b.courseId) + '\n學員：' + b.nameZh + '（' + b.phone + '）');
+    '已轉發至訓練班專屬表 · ' + (b.memberType || '') + '（已交入數紙）');
+  notifyStaff_('🎓 新訓練班報名', '班：' + (link.title || b.courseId) + '\n學員：' + b.nameZh + '（' + b.phone + '）\n支部：' + (b.memberType || ''));
   return { refCode: ref };
 }
 
@@ -1150,16 +1153,30 @@ function seedSampleItems_(ss) {
   });
 }
 
-// 訓練班報名表下拉選單嘅預設資料（區／地域／支部／身份）
+// 訓練班報名表下拉選單嘅預設資料（支部／地域／區會）
+// 來源：香港童軍總會（5 個地域 + 44 個區會）
 // 徽章清單（badge）日後可從參考表貼入：key=badge, group=組別, code=徽章代碼, value=中文名, nameEn=英文名
 function seedCourseParams_(ss) {
   var sh = ss.getSheetByName(SHEET.COURSE_PARAMS);
   if (!sh || sh.getLastRow() > 1) return;
   var rows = [];
+
+  // 支部
   ['小童軍', '幼童軍', '童軍', '深資童軍', '樂行童軍'].forEach(function (v) { rows.push(['section', '', '', v, '', '']); });
-  ['筲箕灣', '柴灣', '港島北', '港島南', '灣仔', '維城', '港島西', '深水埗', '九龍城', '觀塘', '沙田', '荃灣', '屯門', '元朗', '大埔', '北區', '離島'].forEach(function (v) { rows.push(['district', '', '', v, '', '']); });
-  ['港島', '九龍', '東九龍', '新界東', '新界', '離島'].forEach(function (v) { rows.push(['region', '', '', v, '', '']); });
-  ['學員', '領袖'].forEach(function (v) { rows.push(['memberType', '', '', v, '', '']); });
+
+  // 5 大地域
+  ['港島地域', '九龍地域', '東九龍地域', '新界地域', '新界東地域'].forEach(function (v) { rows.push(['region', '', '', v, '', '']); });
+
+  // 44 區會（含總會直轄銀禧區）
+  [
+    '銀禧區',
+    '港島西區', '維多利亞城區', '灣仔區', '港島北區', '筲箕灣區', '柴灣區', '港島南區',
+    '深水埗西區', '深水埗東區', '九龍塘區', '九龍城區', '何文田區', '紅磡區', '油尖區', '旺角區', '深旺區',
+    '慈雲山區', '黃大仙區', '九龍灣區', '觀塘區', '鯉魚門區', '將軍澳區', '秀茂坪區', '西貢區',
+    '元朗西區', '元朗東區', '十八鄉區', '北葵涌區', '南葵涌區', '青衣區', '荃灣區', '離島區', '大嶼山區', '屯門東區', '屯門西區',
+    '壁峰區', '沙田西區', '沙田南區', '沙田東區', '沙田北區', '大埔南區', '大埔北區', '雙魚區'
+  ].forEach(function (v) { rows.push(['district', '', '', v, '', '']); });
+
   if (rows.length) sh.getRange(2, 1, rows.length, 6).setValues(rows);
 }
 

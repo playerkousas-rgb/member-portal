@@ -1,7 +1,8 @@
 'use client';
 import Link from 'next/link';
 import { useDistrict } from '@/lib/useDistrict';
-import DistrictPicker from '@/components/DistrictPicker';
+
+const ANNOUNCEMENT_URL = 'https://scout-circulars.vercel.app/';
 
 const SERVICES = [
   {
@@ -29,42 +30,10 @@ const SERVICES = [
     desc: '戶外活動（參觀、露營、遠足）書面知會區會存檔，直接喺呢度填表。',
     tag: '自助', external: false,
   },
-  {
-    href: 'https://scout-circulars.vercel.app/', icon: '📢', title: '查看通告',
-    desc: '瀏覽區會最新通告及資訊（跳轉至通告系統）。',
-    tag: '外連', external: true,
-  },
-];
-
-const INFO_LINKS = [
-  { href: '/setup', icon: '🧩', title: '區接入教學', desc: '其他區如欲使用本平台，可先查看接入流程、初始化方式及提交方法。' },
-  { href: '/downloads', icon: '⬇️', title: '模板下載', desc: '直接下載或複製初始後台模板（Code.gs），供其他區建立空白 Sheet。' },
-  { href: '/districts', icon: '🌏', title: '現已使用地區', desc: '查看目前已開通或測試中的地區。' },
-  { href: '/updates', icon: '📢', title: '更新公告', desc: '平台版本與更新紀錄。' },
-  { href: '/guide', icon: '📖', title: '使用指南', desc: '成員及職員的基本操作說明。' },
 ];
 
 export default function HomePage() {
-  const { district, hasDistrict, withDistrict } = useDistrict();
-
-  // 未揀區：顯示揀區 + 資訊連結
-  if (!hasDistrict) {
-    return (
-      <>
-        <DistrictPicker />
-        <h2 style={{ color: '#003366', fontSize: 16, margin: '26px 0 12px' }}>平台資訊</h2>
-        <div className="grid">
-          {INFO_LINKS.map((i) => (
-            <Link key={i.href} className="card" href={i.href}>
-              <div className="ico">{i.icon}</div>
-              <h3>{i.title}</h3>
-              <div className="desc">{i.desc}</div>
-            </Link>
-          ))}
-        </div>
-      </>
-    );
-  }
+  const { district, withDistrict } = useDistrict();
 
   return (
     <>
@@ -72,6 +41,33 @@ export default function HomePage() {
         <h1>{district?.name} — 成員服務 👋</h1>
         <p>呢度係區為旅團及成員提供嘅自助服務入口。填表即可提交，無需登入；區會收到後會跟進處理。</p>
       </div>
+
+      <section
+        className="panel"
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          gap: 16, flexWrap: 'wrap', borderLeft: '6px solid var(--p2)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ fontSize: 38 }}>📢</div>
+          <div>
+            <h2 style={{ margin: 0 }}>查看通告</h2>
+            <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>
+              瀏覽最新通告
+            </p>
+          </div>
+        </div>
+        <a
+          className="btn"
+          href={ANNOUNCEMENT_URL}
+          target="_blank"
+          rel="noopener"
+          style={{ width: 'auto', padding: '11px 20px' }}
+        >
+          📢 瀏覽最新通告
+        </a>
+      </section>
 
       <div className="grid">
         {SERVICES.map((s) =>
@@ -91,17 +87,6 @@ export default function HomePage() {
             </Link>
           )
         )}
-      </div>
-
-      <h2 style={{ color: '#003366', fontSize: 16, margin: '26px 0 12px' }}>相關資訊</h2>
-      <div className="grid">
-        {INFO_LINKS.map((i) => (
-          <Link key={i.href} className="card" href={withDistrict(i.href)}>
-            <div className="ico">{i.icon}</div>
-            <h3>{i.title}</h3>
-            <div className="desc">{i.desc}</div>
-          </Link>
-        ))}
       </div>
 
       <p className="hint" style={{ marginTop: 22 }}>

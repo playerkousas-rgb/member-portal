@@ -19,7 +19,7 @@ export interface CourseParams {
   sections: string[];      // 支部：小童軍/幼童軍/童軍/深資童軍/樂行童軍
   districts: string[];     // 區會（筲箕灣/柴灣/…）
   regions: string[];       // 地域（港島/九龍/…）
-  memberTypes: string[];   // 學員/領袖
+  memberTypes: string[];   // 支部（小童軍/幼童軍/童軍/深資童軍/樂行童軍）
 }
 
 export interface PublicInfo {
@@ -111,7 +111,7 @@ export interface CourseReg {
   troop: string;
   scoutId: string;
   scoutPosition: string;
-  memberType: string;     // 學員 / 領袖
+  memberType: string;     // 支部（小童軍/幼童軍/童軍/深資童軍/樂行童軍）
   section: string;        // 支部
   badgeCode: string;
   leaderName: string;

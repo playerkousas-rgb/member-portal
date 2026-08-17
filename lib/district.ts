@@ -65,7 +65,7 @@ export const DISTRICT_LIST: DistrictInfo[] = Object.values(DISTRICTS);
 // ║  將來要開多區：MULTI_DISTRICT_MODE 改返 true，再喺 DISTRICTS       ║
 // ║  加返想開嘅區 + Vercel 加對應 API Key 即可，唔使重寫。           ║
 // ╚══════════════════════════════════════════════════════════════════╝
-export const MULTI_DISTRICT_MODE = true;
+export const MULTI_DISTRICT_MODE = false;
 export const DEFAULT_DISTRICT_CODE: DistrictCode = 'SKW';
 
 export function isDistrictCode(value: string | null | undefined): value is DistrictCode {
