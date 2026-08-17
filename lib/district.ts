@@ -1,8 +1,8 @@
 /**
  * 區目錄（多區連接核心）— 採 DBS 3.0 模式
  * ================================================================
- * 「統一前端 + 各區獨立 Google Sheet / Apps Script 後台」。
- * 區碼 → apiBase 對照寫在這裡；接新區只需加一筆再 push。
+ * 公開成員系統同區管理系統共用各區同一張主 Google Sheet、同一份 Code.gs 及同一個 /exec。
+ * 區碼 → 管理系統 apiBase 對照寫在這裡；接新區只需加一筆再設定 server env。
  *
  * 三態 status：
  *   live     已開通（正常使用）
@@ -39,9 +39,10 @@ export const DISTRICTS = {
   SKW: {
     code: 'SKW',
     name: '筲箕灣區',
-    apiBase: 'https://script.google.com/macros/s/REPLACE_WITH_YOUR_EXEC_URL/exec',
+    // 必須同 scout-district-portal 嘅 SKW apiBase 完全相同。
+    apiBase: 'https://script.google.com/macros/s/AKfycbwjxArQHwRrzCXMTyUon_PozUklGRC5ZnvS_vfYVjr3hTvhPMDIVYTtpJ9POUS8qPAv/exec',
     status: 'live',
-    note: '首個接入區。Vercel env: MEMBER_SKW_APIKEY',
+    note: '與區管理系統共用主 Sheet / Code.gs / exec。Vercel env: MEMBER_SKW_APIKEY',
   },
   // 範例：接入柴灣區時打開並填入該區自己的 exec 網址
   // CHW: {

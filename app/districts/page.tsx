@@ -1,23 +1,23 @@
-'use client';
-import { DISTRICT_LIST, getDistrictStatusLabel, getDistrictStatusColor } from '@/lib/district';
+import Link from 'next/link';
+import { DISTRICT_LIST, getDistrictStatusColor, getDistrictStatusLabel } from '@/lib/district';
+
 export default function DistrictsPage() {
   return (
     <>
+      <Link href="/" className="backlink">← 返回服務首頁</Link>
       <h1 className="page-title">🌏 使用地區</h1>
-      <p className="page-sub">已接入本平台的童軍區。每區各自獨立後台，資料互不相通。</p>
-      <div className="panel">
-        {DISTRICT_LIST.map(d => (
-          <div className="item-row" key={d.code}>
-            <span className="iname">{d.name}</span>
-            <span className="icat">{d.code}</span>
-            <span className="pill" style={{ background: getDistrictStatusColor(d.status), color: '#fff' }}>
-              {getDistrictStatusLabel(d.status)}
+      <p className="page-sub">每區嘅成員系統會同該區管理系統共用同一張主 Sheet 及同一個 Apps Script /exec；不同區之間資料互不相通。</p>
+      <section className="panel">
+        {DISTRICT_LIST.map((district) => (
+          <div className="item-row" key={district.code}>
+            <span className="iname">{district.name}</span>
+            <span className="icat">{district.code}</span>
+            <span className="pill" style={{ background: getDistrictStatusColor(district.status), color: '#fff' }}>
+              {getDistrictStatusLabel(district.status)}
             </span>
-            {d.note && <span style={{ fontSize: 12, color: '#64748b' }}>{d.note}</span>}
           </div>
         ))}
-      </div>
-      <p style={{ fontSize: 12.5, color: '#64748b' }}>想接入？請看「🧩 區接入」教學。</p>
+      </section>
     </>
   );
 }

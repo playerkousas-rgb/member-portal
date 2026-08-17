@@ -1,50 +1,50 @@
-'use client';
+import Link from 'next/link';
+
 export default function GuidePage() {
   return (
     <>
-      <h1 className="page-title">📖 使用指南</h1>
-      <p className="page-sub">成員與職員的基本操作說明。</p>
+      <Link href="/" className="backlink">← 返回服務首頁</Link>
+      <h1 className="page-title">📖 公開服務使用指南</h1>
+      <p className="page-sub">所有服務無需登入；管理、批核、權限及設定全部由另一套區管理系統處理。</p>
 
-      <div className="panel">
+      <section className="panel">
         <h2>🏛 借用場地</h2>
         <ol style={{ paddingLeft: 20, lineHeight: 2, fontSize: 13.5 }}>
-          <li>先去 TeamUp 登記你想用嘅時段。</li>
-          <li>返到本平台填借用申請（場地 + 時間要同 TeamUp 一致）。</li>
-          <li>職員批核後，電子鎖密碼會自動電郵俾你。</li>
+          <li>查看由主 Sheet 提供嘅可借場地。</li>
+          <li>填寫時段、用途及聯絡資料，再提交申請。</li>
+          <li>提交唔代表已獲批准；請等區會跟進。</li>
         </ol>
-      </div>
+      </section>
 
-      <div className="panel">
+      <section className="panel">
         <h2>📦 借用物資</h2>
         <ol style={{ paddingLeft: 20, lineHeight: 2, fontSize: 13.5 }}>
-          <li>喺「借用物資」揀物資、數量、借用日期。</li>
-          <li>交表後等職員批核（電郵通知）。</li>
-          <li>批核後按約定時間到區總部領取。</li>
+          <li>查看物資及目前可借數量。</li>
+          <li>選擇數量、借還日期並提交。</li>
+          <li>庫存扣減、歸還及批核只會喺區管理系統進行。</li>
         </ol>
-      </div>
+      </section>
 
-      <div className="panel">
+      <section className="panel">
         <h2>🎓 訓練班報名</h2>
         <ol style={{ paddingLeft: 20, lineHeight: 2, fontSize: 13.5 }}>
-          <li>去「訓練班報名」揀想報嘅班，睇節次、資格同費用。</li>
-          <li>填報名表（支部、個人、童軍、監護人／領袖、FPS 繳費資料）。</li>
-          <li>以轉數快（FPS）繳費，並於報名時上傳入數紙截圖（存入該班嘅雲端資料夾）。</li>
-          <li>未繳費／未上傳入數紙將不獲處理申請；提交後取得報名編號，負責職員核對。</li>
+          <li>由主 Sheet「CourseLinks」查看開放中嘅訓練班。</li>
+          <li>按課程通告繳費，填寫報名資料並上傳入數紙。</li>
+          <li>主後台會將報名轉發到該班專屬 Script 及「表格回應」分頁。</li>
+          <li>取錄及批核由該班負責領袖處理。</li>
         </ol>
-      </div>
+      </section>
 
-      <div className="panel">
+      <section className="panel">
         <h2>📋 旅團活動知會</h2>
         <ol style={{ paddingLeft: 20, lineHeight: 2, fontSize: 13.5 }}>
-          <li>根據總會規定，旅團進行戶外活動（參觀、露營、遠足）須以書面知會區會存檔。</li>
-          <li>喺主控台撳「旅團活動知會」，直接喺本平台填表即可，提交後寫入區會存檔。</li>
+          <li>可按年份、支部及性質查看公開活動知會。</li>
+          <li>填妥活動及負責領袖資料後提交到主 Sheet。</li>
+          <li>公開清單不會顯示領袖姓名、電話或電郵。</li>
         </ol>
-      </div>
+      </section>
 
-      <div className="panel">
-        <h2>🔐 職員（批核人）</h2>
-        <p style={{ fontSize: 13.5 }}>喺右上角「職員入口」登入後台，可批核借場／借物資／報班申請，並管理物資、班別及場地。</p>
-      </div>
+      <p className="hint">請記低提交後顯示嘅參考編號，以便向區會查詢。</p>
     </>
   );
 }

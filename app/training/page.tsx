@@ -1,10 +1,11 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { AntiSpamField, getSubmissionMeta } from '@/components/AntiSpamField';
 import { api } from '@/lib/api';
-import { getStoredDistrictCode, setStoredDistrictCode } from '@/lib/district';
 import { SCOUT_DISTRICTS, SCOUT_REGIONS, SCOUT_SECTIONS } from '@/lib/scout';
-import type { CourseLink, CourseParams, PublicInfo } from '@/lib/types';
+import type { CourseLink } from '@/lib/types';
+import { useDistrict } from '@/lib/useDistrict';
 
 const empty = (s: string) => !s || s.trim() === '';
 
@@ -38,10 +39,11 @@ async function processReceiptFile(file: File, maxDim = 1600, quality = 0.72): Pr
 }
 
 export default function TrainingPage() {
+  const { withDistrict } = useDistrict();
+  const startedAt = useRef(Date.now());
   const [links, setLinks] = useState<CourseLink[]>([]);
-  const [params, setParams] = useState<CourseParams | null>(null);
-  const [pub, setPub] = useState<PublicInfo | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   // 報名表
   const [courseId, setCourseId] = useState('');
@@ -78,23 +80,24 @@ export default function TrainingPage() {
   const [doneTitle, setDoneTitle] = useState('');
 
   useEffect(() => {
-    if (!getStoredDistrictCode()) setStoredDistrictCode('SKW');
-    api.listCourseLinks().then((r) => { if (r.ok && r.data) setLinks(r.data); setLoading(false); });
-    api.listCourseParams().then((r) => { if (r.ok && r.data) setParams(r.data); });
-    api.getPublicInfo().then((r) => { if (r.ok && r.data) setPub(r.data); });
+    api.listCourseLinks().then((result) => {
+      if (result.ok && result.data) setLinks(result.data.filter((course) => course.active));
+      else setLoadError(result.error || '未能載入訓練班。');
+      setLoading(false);
+    });
   }, []);
 
   const selected = useMemo(() => links.find((c) => c.courseId === courseId), [links, courseId]);
-  const sections = params?.sections?.length ? params.sections : SCOUT_SECTIONS;
-  const districts = params?.districts?.length ? params.districts : SCOUT_DISTRICTS;
-  const regions = params?.regions?.length ? params.regions : SCOUT_REGIONS;
+  const sections = SCOUT_SECTIONS;
+  const districts = SCOUT_DISTRICTS;
+  const regions = SCOUT_REGIONS;
 
   function pickCourse(id: string) {
     setCourseId(id);
     window.scrollTo({ top: document.getElementById('reg-form')?.offsetTop ?? 0, behavior: 'smooth' });
   }
 
-  async function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError('');
     if (empty(courseId) || empty(nameZh) || empty(phone) || empty(email) || empty(memberType)) {
@@ -105,6 +108,7 @@ export default function TrainingPage() {
       setError('請上傳入數紙截圖。未繳費將不獲處理申請。');
       return;
     }
+    const meta = getSubmissionMeta(e.currentTarget, startedAt.current);
     setBusy(true);
     const r = await api.submitCourseReg({
       courseId, memberType, nameZh, nameEn, gender, dob, phone, email,
@@ -117,9 +121,10 @@ export default function TrainingPage() {
       receiptFileName: receiptFile.name,
       receiptMimeType: receiptFile.mimeType,
       receiptDataUrl: receiptFile.dataUrl,
-    });
+      payMethod: 'FPS',
+    }, meta);
     setBusy(false);
-    if (r.ok && r.data) { setDoneRef(r.data.refCode); setDoneTitle(selected?.title || ''); window.scrollTo(0, 0); }
+    if (r.ok && r.data) { setDoneRef(r.data.refCode || '已提交'); setDoneTitle(selected?.title || ''); window.scrollTo(0, 0); }
     else setError(r.error || '提交失敗，請稍後再試。');
   }
 
@@ -128,9 +133,11 @@ export default function TrainingPage() {
     setError('');
     if (!file) return;
     if (!/^image\//.test(file.type)) { setError('請上傳圖片檔案（JPG／PNG）。'); return; }
+    if (file.size > 15_000_000) { setError('原始圖片太大，請先壓縮至 15MB 以下。'); return; }
     setReceiptBusy(true);
     try {
       const { dataUrl, mimeType } = await processReceiptFile(file);
+      if (dataUrl.length > 3_800_000) throw new Error('COMPRESSED_FILE_TOO_LARGE');
       setReceiptFile({ name: file.name, dataUrl, mimeType });
     } catch {
       setError('圖片處理失敗，請再試。');
@@ -152,8 +159,8 @@ export default function TrainingPage() {
           已收到你嘅入數紙，職員核對後會以電郵確認。
         </p>
         <div style={{ marginTop: 20 }}>
-          <Link href="/" className="btn-ghost">返回首頁</Link>{' '}
-          <button className="btn-sm" onClick={() => { setDoneRef(''); setCourseId(''); setReceiptFile(null); }}>再報名</button>
+          <Link href={withDistrict('/')} className="btn-ghost">返回首頁</Link>{' '}
+          <button className="btn-sm" onClick={() => { startedAt.current = Date.now(); setDoneRef(''); setCourseId(''); setReceiptFile(null); }}>再報名</button>
         </div>
       </div>
     );
@@ -161,14 +168,15 @@ export default function TrainingPage() {
 
   return (
     <>
-      <Link href="/" className="backlink">← 返回服務首頁</Link>
+      <Link href={withDistrict('/')} className="backlink">← 返回服務首頁</Link>
       <h1 className="page-title">🎓 訓練班報名</h1>
       <p className="page-sub">揀你想報嘅訓練班，填表報名。繳費以轉數快（FPS）進行，報名時必須上傳入數紙，未繳費將不獲處理。</p>
 
       <div className="panel">
         <h2>開辦中嘅訓練班</h2>
         {loading && <div className="empty">載入中…</div>}
-        {!loading && links.length === 0 && <div className="empty">暫時未有開放報名嘅訓練班。</div>}
+        {loadError && <div className="err">{loadError}</div>}
+        {!loading && !loadError && links.length === 0 && <div className="empty">暫時未有開放報名嘅訓練班。</div>}
         {links.map((c) => {
           const full = c.quota > 0 && c.filled >= c.quota;
           return (
@@ -190,7 +198,9 @@ export default function TrainingPage() {
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <span className={`pill ${full ? 'rejected' : 'pending'}`}>{full ? '名額已滿' : `尚餘 ${Math.max(0, c.quota - c.filled)} 位`}</span>
+                <span className={`pill ${full ? 'rejected' : 'pending'}`}>
+                  {full ? '名額已滿' : c.quota > 0 ? `尚餘 ${Math.max(0, c.quota - c.filled)} 位` : '接受報名'}
+                </span>
                 <div style={{ marginTop: 8 }}>
                   <button className="btn-sm" disabled={full} onClick={() => pickCourse(c.courseId)}>報名</button>
                 </div>
@@ -315,11 +325,9 @@ export default function TrainingPage() {
 
         <div className="panel" style={{ background: '#f8fbff', border: '1px solid #dbeafe' }}>
           <h2>💳 繳費（轉數快）</h2>
-          {pub && (
-            <div style={{ fontSize: 12.5, color: '#334155', marginBottom: 12 }}>
-              請轉數快至 <b>{pub.fpsAccountName}</b>（帳戶：{pub.fpsAccountNumber}），並上傳入數紙截圖。
-            </div>
-          )}
+          <div style={{ fontSize: 12.5, color: '#334155', marginBottom: 12 }}>
+            請按課程通告提供嘅付款資料完成繳費，並上傳入數紙截圖。
+          </div>
           <div className="frow">
             <div className="field"><label>付款人姓名</label>
               <input value={payerName} onChange={(e) => setPayerName(e.target.value)} /></div>
@@ -345,7 +353,8 @@ export default function TrainingPage() {
         <div className="field"><label>其他資料</label>
           <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="其他需要通知嘅資料…" /></div>
 
-        <button className="btn" disabled={busy}>{busy ? '提交中…' : '提交報名'}</button>
+        <AntiSpamField />
+        <button className="btn" disabled={busy || loading || links.length === 0}>{busy ? '提交中…' : '提交報名'}</button>
       </form>
     </>
   );

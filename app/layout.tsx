@@ -5,7 +5,7 @@ import Shell from '@/components/Shell';
 
 export const metadata: Metadata = {
   title: '成員服務門戶',
-  description: '旅團及成員自助服務：借用場地、借用物資、報讀訓練班',
+  description: '無需登入嘅公開服務：借用場地、借用物資、訓練班報名及旅團活動知會',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

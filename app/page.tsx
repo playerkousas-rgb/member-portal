@@ -7,18 +7,18 @@ const ANNOUNCEMENT_URL = 'https://scout-circulars.vercel.app/';
 const SERVICES = [
   {
     href: '/venue', icon: '🏛', title: '借用場地',
-    desc: '喺 TeamUp 登記時間，經呢度交表。批核後電子鎖密碼會自動發送俾你。',
-    tag: '自助', external: false,
+    desc: '查看可借場地並公開提交申請；區會會喺管理系統跟進批核。',
+    tag: '公開提交', external: false,
   },
   {
     href: '/stock', icon: '📦', title: '借用物資',
-    desc: '睇吓有咩物資可以借，揀好數量同日期，交表等職員批核。',
-    tag: '自助', external: false,
+    desc: '查看主 Sheet 嘅可借物資，揀好數量同日期後提交申請。',
+    tag: '公開提交', external: false,
   },
   {
     href: '/training', icon: '🎓', title: '訓練班報名',
-    desc: '瀏覽開辦中嘅訓練班，網上報名，FPS 繳費後上傳入數紙。',
-    tag: '自助', external: false,
+    desc: '瀏覽開放中嘅訓練班；報名會轉發到該班專屬收表 Sheet。',
+    tag: '公開報名', external: false,
   },
   {
     href: 'https://districtbadgesystem30.vercel.app/', icon: '🎖', title: '專科徽章系統',
@@ -27,8 +27,8 @@ const SERVICES = [
   },
   {
     href: '/activity', icon: '📋', title: '旅團活動知會',
-    desc: '戶外活動（參觀、露營、遠足）書面知會區會存檔，直接喺呢度填表。',
-    tag: '自助', external: false,
+    desc: '查看公開知會，或將旅團戶外活動資料提交到主 Sheet 存檔。',
+    tag: '查看／提交', external: false,
   },
 ];
 
