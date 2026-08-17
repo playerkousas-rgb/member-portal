@@ -17,6 +17,12 @@ export const DEFAULT_DISABLED_MESSAGE = '此區服務現正暫停。請留意區
 
 export type DistrictStatus = 'live' | 'testing' | 'disabled';
 
+export interface DistrictLinks {
+  website?: string;
+  facebook?: string;
+  instagram?: string;
+}
+
 export interface DistrictInfo {
   code: string;
   name: string;
@@ -24,6 +30,7 @@ export interface DistrictInfo {
   status: DistrictStatus;
   note?: string;
   maintenanceMessage?: string;
+  links?: DistrictLinks;
 }
 
 // ╔══════════════════════════════════════════════════════════════════╗
@@ -43,6 +50,11 @@ export const DISTRICTS = {
     apiBase: 'https://script.google.com/macros/s/AKfycbwjxArQHwRrzCXMTyUon_PozUklGRC5ZnvS_vfYVjr3hTvhPMDIVYTtpJ9POUS8qPAv/exec',
     status: 'live',
     note: '與區管理系統共用主 Sheet / Code.gs / exec。Vercel env: MEMBER_SKW_APIKEY',
+    links: {
+      website: 'https://www.skwscout.org.hk/',
+      facebook: 'https://www.facebook.com/skwscout/',
+      instagram: 'https://www.instagram.com/skwscout/',
+    },
   },
   // 範例：接入柴灣區時打開並填入該區自己的 exec 網址
   // CHW: {

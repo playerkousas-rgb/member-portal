@@ -114,8 +114,41 @@ table.tbl{border-collapse:collapse;width:100%;min-width:700px;font-size:13px;}
 
 .empty{background:#fff;border:1px dashed var(--line);border-radius:14px;padding:34px;text-align:center;color:var(--muted);font-size:13px;}
 
+/* district social icons */
+.social-links{display:flex;flex-direction:column;align-items:center;gap:8px;}
+.social-heading{font-size:12px;font-weight:700;letter-spacing:.02em;}
+.social-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
+.social-btn{display:inline-flex;align-items:center;gap:8px;border-radius:999px;text-decoration:none;transition:.15s;}
+.social-ico{width:36px;height:36px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;}
+.social-ico svg{width:18px;height:18px;display:block;}
+.social-label{display:flex;flex-direction:column;line-height:1.15;text-align:left;}
+.social-label strong{font-size:12.5px;font-weight:800;}
+.social-label em{font-size:10.5px;font-style:normal;opacity:.78;}
+.social-ig .social-ico{background:linear-gradient(135deg,#f9ce34,#ee2a7b 55%,#6228d7);color:#fff;}
+.social-fb .social-ico{background:#1877f2;color:#fff;}
+.social-web .social-ico{background:#0f766e;color:#fff;}
+.social-btn:hover{transform:translateY(-1px);}
+
+.social-hero{margin-top:16px;align-items:flex-start;}
+.social-hero .social-heading{color:#dbeafe;font-weight:600;}
+.social-hero .social-btn{background:rgba(255,255,255,.12);color:#fff;padding:6px 14px 6px 6px;border:1px solid rgba(255,255,255,.18);}
+.social-hero .social-btn:hover{background:rgba(255,255,255,.22);}
+
+.social-footer{margin-bottom:14px;}
+.social-footer .social-btn{padding:4px 10px 4px 4px;background:#fff;border:1px solid var(--line);color:var(--slate);}
+.social-footer .social-btn:hover{border-color:#cbd5e1;box-shadow:0 4px 12px rgba(15,23,42,.08);}
+.social-footer .social-ico{width:30px;height:30px;}
+.social-footer .social-ico svg{width:15px;height:15px;}
+.social-footer .social-label em{display:none;}
+
+.social-panel{align-items:flex-start;}
+.social-panel .social-heading{color:var(--p);}
+.social-panel .social-btn{padding:6px 14px 6px 6px;background:#fff;border:1px solid var(--line);color:var(--slate);}
+
 @media (max-width:640px){
   .shell-head{padding:10px 14px;}.shell-main{padding:18px 14px;}
   .grid{grid-template-columns:1fr;}.frow,.frow3{grid-template-columns:1fr;}
   .panel{padding:16px;}
+  .social-hero .social-label em,.social-footer .social-label{display:none;}
+  .social-hero .social-btn{padding:6px;}
 }
