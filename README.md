@@ -1,110 +1,92 @@
-# 成員服務門戶（Member Service Portal）
+# 成員服務門戶（member-portal）
 
-區內童軍／旅團嘅**公共服務入口**。**100% 公開，無需登入**；所有表單直接寫入 Google Sheet，
-批核／管理／output 由另一邊嘅**區管理系統**直接接入同一批 Sheet 處理。
+區內童軍、旅團及成員使用嘅**完全公開服務入口**。無帳戶、無登入、無管理功能。
 
-## 服務
+> **管理系統** `scout-district-portal`：登入、開班、批核、權限、設定。
+>
+> **成員系統** `member-portal`：公開讀取選項及提交表單。
+>
+> **兩者共用同一張主 Google Sheet、同一份 `Code.gs`、同一個 Apps Script `/exec`。**
 
-| 服務 | 說明 | 資料寫入 |
+管理系統 repository：<https://github.com/playerkousas-rgb/scout-district-portal>
+
+## 公開功能
+
+| 頁面 | 公開讀取 | 公開提交 |
 |---|---|---|
-| 🏛 借用場地 | 填表申請 | 主 Sheet「VenueBookings」 |
-| 📦 借用物資 | 揀物資 + 填表 | 主 Sheet「StockRequests」 |
-| 🎓 訓練班報名 | 每班 1 張專屬 Sheet | 該班專屬 Sheet「Regs」 |
-| 📋 旅團活動知會 | 內建填表 | 主 Sheet「ActivityNotices」 |
-| 🎖 專科徽章 | 外連 DBS 3.0 | — |
+| `/venue` | `listVenues` | `submitVenueRequest` |
+| `/stock` | `listItems` | `submitStockRequest` |
+| `/training` | `listCourseLinks` | `submitCourseReg` → 每班 Script `addReg` |
+| `/activity` | `listActivityNotices` | `submitActivityNotice` |
+| 全站 | `getConfig`、`getSystem` | 系統鎖定時 server 拒絕提交 |
 
-## 頁面
+`/course` 只係舊網址，會轉到 `/training`。
 
-- `/` 主控台：揀區 → 服務卡片
-- `/training` 訓練班報名（公開，任何人可填）
-- `/districts` 使用地區
-- `/setup` 區接入教學
-- `/downloads` 模板下載（Code.gs + Code.gs.course）
-- `/updates` 更新公告
-- `/guide` 使用指南
-- `/venue` `/stock` `/course` 公開表單（無需登入）
+## 絕對分工
 
-> 無任何登入入口；批核／電郵密碼／output 全部由區管理系統直接接入 Google Sheet 處理。
+成員系統**唔會**：
 
-## 訓練班報名（每班專屬 Sheet）
+- 提供登入或職員入口；
+- 讀 `Users / Roles / Cards / Perms`；
+- 呼叫任何管理 action；
+- 直接讀取或修改 `VenueBookings / StockRequests` 嘅 `status`；
+- 保存另一份主 `Code.gs` 或每班 Script 模板。
 
-成員門戶只負責**報名寫入**；開班、文件、output、收費管理喺另一邊區管理系統做。
+後台 Script 唯一來源係管理系統 repository 嘅 `gs/Code.gs` 及 `gs/Code.gs.course.js`。
 
-```
-用戶填 /training
-  → POST /api/proxy（主區後台）
-  → submitCourseReg_ 查 CourseLinks 表
-  → 轉發去該班專屬 Apps Script（/exec）
-  → 寫入該班自己張 Sheet（Regs 分頁）
-```
+## 請求架構
 
-- 每個訓練班：1 張 Google Sheet + 1 份收表 Script（模板：`downloads/Code.gs.course.txt`）。
-- 入數紙截圖由申請人於報名時上傳，經該班 Script 存入該班嘅 Google Drive 資料夾
-  （`setupCourseSheet()` 會自動建立資料夾，亦可喺選單「📁 設定入數紙資料夾」改）。未繳費／未上傳不獲處理。
-- 新班接入：喺主 Sheet「CourseLinks」分頁加一行（課程資料 + /exec 網址 + API Key + active=TRUE），
-  或由區管理系統直接寫入該分頁。deadline 過咗／active=FALSE 自動唔顯示。
-- 目前只服務筲箕灣區：任何人入 `/training` 自動預設 SKW，唔使揀區。
-
-## 職員／權限（Code.gs 保留，前端已無登入入口）
-
-- 門戶前端已移除登入入口；所有批核／管理由區管理系統直接接入 Sheet。
-- Code.gs 仍保留職員 API（staffLogin / 批核 / Sciener / TeamUp / 電郵）同後門帳戶，
-  供區管理系統以 API Key + token 直接呼叫（可選用），或由區管理系統自己喺 Sheet 層面處理。
-
-## 借用規定
-
-借場／借物資頁面會顯示「借用規定」並要求申請人勾選同意：
-- 借場：內建預設根據《借場規則及程序》《場地一般使用條件》及《閉路電視監察措施指引》摘要；Config 可加 PDF 連結。
-- 借物資：內建預設根據港島地域物資中心借用規則摘要。
-- 想自訂：喺 Config 填 `VENUE_RULES` / `STOCK_RULES`（多行文字），留空即用內建預設。
-
-## 單區模式開關
-
-`lib/district.ts` 嘅 `MULTI_DISTRICT_MODE`：
-- `true`（現設）：顯示揀區畫面 + 多區資訊頁（DBS 模式）
-- `false`：對外隱藏多區，固定預設區，隱藏地區下拉／「區接入」「使用地區」入口
-
-## 架構（同 DBS 3.0 / 幹部門戶同一 pattern）
-
-```
-Next.js（Vercel） → /api/proxy → 該區 Google Apps Script → 該區 Google Sheet
+```text
+browser（無 API Key）
+  → member-portal /api/proxy
+      → 注入 Vercel server env：MEMBER_{區碼}_APIKEY
+      → 共用主 Apps Script /exec
+          ├─ 主 Google Sheet
+          └─ submitCourseReg 再轉發到每班專屬 Script / Sheet
 ```
 
-API Key 存喺 Vercel env（`MEMBER_{區碼}_APIKEY`），唔會流出前端。
+`app/api/proxy/route.ts` 會：
 
-## 部署步驟
+- 只容許上述公開 action（管理 action 一律 `403`）；
+- 對 CourseLinks、活動知會等回應再做公開欄位白名單；
+- 防止 `scriptApiKey / scriptExecUrl / driveFolderId` 及領袖聯絡資料流出；
+- 提交前再檢查 `getSystem`；
+- 執行 body 大小、honeypot、欄位白名單及基本 per-instance rate limit；
+- 將 Apps Script 嘅 `{ ok: true, refCode }` 統一成前端使用嘅 `{ ok: true, data: { refCode } }`。
 
-### 1. 起後台（Google Sheet + Apps Script）
-1. 新開一張 Google Sheet → 擴充功能 → Apps Script。
-2. 貼上 `gs/Code.gs`，儲存。
-3. 行 `setupSheets()`（首次授權：Review permissions → Advanced → Allow）。
-4. 彈窗會顯示 **API Key**（只顯示一次！）請即複製。
-5. 喺 `Config` 分頁填：
-   - `SCIENER_CLIENT_ID` / `SCIENER_CLIENT_SECRET`（開放平台 open.sciener.com 註冊攞）
-   - `TEAMUP_API_KEY` / `TEAMUP_CALENDAR_KEY` / `TEAMUP_PENDING_SUBCAL_ID`（藍）/ `TEAMUP_APPROVED_SUBCAL_ID`（紅）/ `TEAMUP_BOOKING_URL`
-   - `FPS_ACCOUNT_NAME` / `FPS_ACCOUNT_NUMBER`
-   - `NOTIFY_STAFF_EMAIL`
-6. 喺 `Staff` 分頁加職員（passwordHash = SHA-256，可用 `setupSheets` 時建 MASTER_EMAIL 帳號）。
-7. 部署 → 新增部署 → 網頁應用程式（執行身分：我自己；存取：所有人）→ 攞 `/exec` 網址。
+> 基本 rate limit 唔取代 CDN / WAF 或 Apps Script 端限流；正式上線仍建議加 Turnstile / reCAPTCHA。
 
-### 2. 部署前端（Vercel）
-1. Push 上 GitHub → Vercel import。
-2. Environment Variables 加 `MEMBER_SKW_APIKEY = <上面攞嘅 API Key>`。
-3. 改 `lib/district.ts` 入面 `SKW.apiBase` = 你嘅 `/exec` 網址。
-4. Deploy。
+## 管理後台尚要完成嘅兩個 action
 
-## Sciener（科技侠/TTLock）開放平台要點
-- 註冊開放平台 → 攞 `client_id` + `client_secret`（即 `SCIENER_CLIENT_ID/SECRET`）。
-- 鎖要有 Wi-Fi 網關先可以遠端開密碼。
-- 自訂密碼要 V4 passcode 版本嘅鎖（`keyboardPwdVersion: 4`）。
-- 唔同區域主機：`open.sciener.com` / `euopen.sciener.com` / `cnopen.sciener.com`，喺 `SCIENER_API_BASE` 改。
-- API 參數以官方文檔為準，正式接駁時用你嘅 clientId 測試一次。
+成員前端已經按合約接好，但 `scout-district-portal` 主 `Code.gs` 必須先加入：
 
-## 密碼規則（PWD_MODE）
-- `phone4`（預設）：電話頭 4 位；如同一電話已有進行中批核，自動轉尾 4 位。
-- `random`：隨機 4 位（可設 `PWD_LENGTH`）。
+1. `GET action=listCourseLinks`
+   - 只回傳 `active=TRUE`、未過 deadline 嘅公開課程欄位；**不可回傳** `scriptExecUrl / scriptApiKey / driveFolderId`。
+2. `POST action=submitCourseReg`
+   - 驗證課程仍開放 → 由 `CourseLinks` 取每班 Script URL / Key → 轉發 `addReg` → 回傳 `refCode`。
 
-## 擴充到多區
-1. `lib/district.ts` 嘅 `DISTRICTS` 加一筆 + Vercel 加 `MEMBER_{code}_APIKEY`。
-2. 新區自己開新 Sheet 行 `setupSheets()`。
-3. 每張表第一欄都有 `district_code`，多區零改動。
+未加入前，訓練班頁會清楚顯示後台 action 錯誤；其他三個公開服務仍可獨立運作。
+
+## 本機及 Vercel 設定
+
+```bash
+cp .env.example .env.local
+# 填 MEMBER_SKW_APIKEY（與管理系統主 Code.gs 共用同一把 key）
+npm ci
+npm run dev
+```
+
+筲箕灣區 `lib/district.ts` 嘅 `apiBase` 已指向管理系統同一個 `/exec`。每接一區：
+
+1. `lib/district.ts` 加該區及管理系統使用嘅同一個 `/exec`；
+2. Vercel 加 `MEMBER_{區碼}_APIKEY`；
+3. 確認主 `Code.gs` 已部署為「任何人」可執行嘅 Web App。
+
+API Key 只可放 server env，**不可使用 `NEXT_PUBLIC_` 前綴**。
+
+## 驗證
+
+```bash
+npm run build
+npm audit
+```
