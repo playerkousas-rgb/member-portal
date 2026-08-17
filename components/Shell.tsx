@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import DistrictPicker from '@/components/DistrictPicker';
+import SocialLinks from '@/components/SocialLinks';
 import { api } from '@/lib/api';
 import {
   DISTRICT_LIST, MULTI_DISTRICT_MODE, PLATFORM_COPYRIGHT, PLATFORM_NAME,
@@ -130,6 +131,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
       </main>
 
       <footer className="shell-foot">
+        <SocialLinks links={district?.links} variant="footer" districtName={district?.name} />
         <div>{PLATFORM_COPYRIGHT}</div>
         <div style={{ marginTop: 6 }}>公開成員服務 · 所有管理及批核由區管理系統處理</div>
         <div style={{ marginTop: 8 }}>
