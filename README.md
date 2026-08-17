@@ -39,6 +39,8 @@
 ```
 
 - 每個訓練班：1 張 Google Sheet + 1 份收表 Script（模板：`downloads/Code.gs.course.txt`）。
+- 入數紙截圖由申請人於報名時上傳，經該班 Script 存入該班嘅 Google Drive 資料夾
+  （`setupCourseSheet()` 會自動建立資料夾，亦可喺選單「📁 設定入數紙資料夾」改）。未繳費／未上傳不獲處理。
 - 新班接入：喺主 Sheet「CourseLinks」分頁加一行（課程資料 + /exec 網址 + API Key + active=TRUE），
   或由區管理系統直接寫入該分頁。deadline 過咗／active=FALSE 自動唔顯示。
 - 目前只服務筲箕灣區：任何人入 `/training` 自動預設 SKW，唔使揀區。
