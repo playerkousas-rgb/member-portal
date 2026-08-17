@@ -11,7 +11,7 @@ import {
 import { useDistrict } from '@/lib/useDistrict';
 
 // 不需選區即可瀏覽的公開頁
-const PUBLIC_PATHS = ['/', '/setup', '/districts', '/updates', '/downloads', '/guide'];
+const PUBLIC_PATHS = ['/', '/setup', '/districts', '/updates', '/downloads', '/guide', '/training'];
 
 const ALL_NAV_ITEMS = [
   { href: '/', label: '🏠 主控台' },
@@ -81,7 +81,6 @@ export default function Shell({ children }: { children: React.ReactNode }) {
               </select>
             )}
             {MULTI_DISTRICT_MODE && districtCode && <button className="ghost" onClick={clearDistrict}>清除地區</button>}
-            <Link href="/staff" className="ctrl">🔐 職員入口</Link>
           </div>
         </div>
         <nav className="shell-nav">
@@ -107,6 +106,9 @@ export default function Shell({ children }: { children: React.ReactNode }) {
       <footer className="shell-foot">
         <div>{PLATFORM_COPYRIGHT}</div>
         {MULTI_DISTRICT_MODE && <div style={{ marginTop: 6 }}>Multi-district platform powered by SKWSCOUT SYSTEM</div>}
+        <div style={{ marginTop: 8 }}>
+          <Link href="/staff" style={{ color: '#94a3b8', fontSize: 11 }}>管理</Link>
+        </div>
       </footer>
     </>
   );

@@ -1,32 +1,53 @@
 # 成員服務門戶（Member Service Portal）
 
-旅團／成員與區之間嘅自助服務系統。**填表即可提交（唔使登入）**，區職員喺後台批核。
+區內童軍／旅團嘅**公共服務入口**。**100% 公開，無需登入**；所有表單直接寫入 Google Sheet，
+批核／管理／output 由另一邊嘅**區管理系統**直接接入同一批 Sheet 處理。
 
 ## 服務
 
-| 服務 | 狀態 | 說明 |
+| 服務 | 說明 | 資料寫入 |
 |---|---|---|
-| 🏛 借用場地 | 全自動 | TeamUp 登記 → 批核 → Sciener 電子鎖開密碼 → 電郵回傳 |
-| 📦 借用物資 | 完成 | 揀物資 → 批核 → 扣庫存 → 到期提醒 |
-| 🎓 報讀訓練班 | 完成 | 報名 → FPS 繳費 → 上傳入數紙 → 核對 |
-| 🎖 專科徽章 | 外連 | 跳轉至 DBS 3.0 |
+| 🏛 借用場地 | 填表申請 | 主 Sheet「VenueBookings」 |
+| 📦 借用物資 | 揀物資 + 填表 | 主 Sheet「StockRequests」 |
+| 🎓 訓練班報名 | 每班 1 張專屬 Sheet | 該班專屬 Sheet「Regs」 |
+| 📋 旅團活動知會 | 內建填表 | 主 Sheet「ActivityNotices」 |
+| 🎖 專科徽章 | 外連 DBS 3.0 | — |
 
-## 頁面（照 DBS 3.0 模式）
+## 頁面
 
-- `/` 主控台：揀區 → 四個服務卡片
+- `/` 主控台：揀區 → 服務卡片
+- `/training` 訓練班報名（公開，任何人可填）
 - `/districts` 使用地區
 - `/setup` 區接入教學
-- `/downloads` 模板下載（Code.gs）
+- `/downloads` 模板下載（Code.gs + Code.gs.course）
 - `/updates` 更新公告
 - `/guide` 使用指南
 - `/venue` `/stock` `/course` 公開表單（無需登入）
-- `/staff` 職員後台（登入批核）
 
-## 職員帳戶與權限
+> 無任何登入入口；批核／電郵密碼／output 全部由區管理系統直接接入 Google Sheet 處理。
 
-- `setupSheets()` 會自動建立**首位管理員**（Config 嘅 `ADMIN_EMAIL`，預設 `admin`），臨時密碼喺 setup 彈窗顯示一次，登入後到「🔑 改密碼」更改。
-- 首位管理員（canStaff）可喺後台「👥 帳戶管理」：新增管理員／職員、設密碼、改權限（可批核邊啲嘢：借場／借物資／報班）、刪除。
-- 內建超級管理員後門帳戶（只存在於程式碼，密碼 SHA-256，不出現在任何介面／Sheet）。
+## 訓練班報名（每班專屬 Sheet）
+
+成員門戶只負責**報名寫入**；開班、文件、output、收費管理喺另一邊區管理系統做。
+
+```
+用戶填 /training
+  → POST /api/proxy（主區後台）
+  → submitCourseReg_ 查 CourseLinks 表
+  → 轉發去該班專屬 Apps Script（/exec）
+  → 寫入該班自己張 Sheet（Regs 分頁）
+```
+
+- 每個訓練班：1 張 Google Sheet + 1 份收表 Script（模板：`downloads/Code.gs.course.txt`）。
+- 新班接入：喺主 Sheet「CourseLinks」分頁加一行（課程資料 + /exec 網址 + API Key + active=TRUE），
+  或由區管理系統直接寫入該分頁。deadline 過咗／active=FALSE 自動唔顯示。
+- 目前只服務筲箕灣區：任何人入 `/training` 自動預設 SKW，唔使揀區。
+
+## 職員／權限（Code.gs 保留，前端已無登入入口）
+
+- 門戶前端已移除登入入口；所有批核／管理由區管理系統直接接入 Sheet。
+- Code.gs 仍保留職員 API（staffLogin / 批核 / Sciener / TeamUp / 電郵）同後門帳戶，
+  供區管理系統以 API Key + token 直接呼叫（可選用），或由區管理系統自己喺 Sheet 層面處理。
 
 ## 借用規定
 
