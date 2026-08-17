@@ -40,7 +40,7 @@ export const DISTRICTS = {
     code: 'SKW',
     name: '筲箕灣區',
     // 必須同 scout-district-portal 嘅 SKW apiBase 完全相同。
-    apiBase: 'https://script.google.com/macros/s/AKfycbzag_0DKfFYzjJYAlH9Sf3ojUGGDzIpQlEpRZWI5A-BZ7irOz2OguYVxlSCu9xw5hjJsw/exec',
+    apiBase: 'https://script.google.com/macros/s/AKfycbwjxArQHwRrzCXMTyUon_PozUklGRC5ZnvS_vfYVjr3hTvhPMDIVYTtpJ9POUS8qPAv/exec',
     status: 'live',
     note: '與區管理系統共用主 Sheet / Code.gs / exec。Vercel env: MEMBER_SKW_APIKEY',
   },
