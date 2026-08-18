@@ -56,16 +56,21 @@ browser（無 API Key）
 
 > 基本 rate limit 唔取代 CDN / WAF 或 Apps Script 端限流；正式上線仍建議加 Turnstile / reCAPTCHA。
 
-## 管理後台尚要完成嘅兩個 action
+## 對接狀態（與 scout-district-portal v4.0.1 核對）
 
-成員前端已經按合約接好，但 `scout-district-portal` 主 `Code.gs` 必須先加入：
+管理後台 `gs/Code.gs`（統一後台 v4.0.1）已包含兩個公開 action，合約已全部達成：
 
-1. `GET action=listCourseLinks`
-   - 只回傳 `active=TRUE`、未過 deadline 嘅公開課程欄位；**不可回傳** `scriptExecUrl / scriptApiKey / driveFolderId`。
-2. `POST action=submitCourseReg`
-   - 驗證課程仍開放 → 由 `CourseLinks` 取每班 Script URL / Key → 轉發 `addReg` → 回傳 `refCode`。
+1. `GET action=listCourseLinks` ✅
+   - 只回傳 `active=TRUE`、未過 deadline 嘅公開課程欄位；經 `courseLinkPublic_` 清洗，**不會回傳** `scriptExecUrl / scriptApiKey / driveFolderId`。
+2. `POST action=submitCourseReg` ✅
+   - 驗證課程仍開放（含 **deadline 檢查**，v4.0.1 加入）+ quota → 只喺 server 讀每班 Script URL / Key → 轉發 `addReg`（v4.0.1 起**包含 `extra` 附加資料欄位**）→ 回傳 `refCode`；另更新 `filled` 人數、寫入 `Records` 及通知職員。
+3. 每班收表 Script `gs/Code.gs.course.js` 嘅 `addReg` ✅
+   - 驗證、防重複（同電郵）、入數紙存 Drive、回傳 `{ ok: true, refCode }`。
 
-未加入前，訓練班頁會清楚顯示後台 action 錯誤；其他三個公開服務仍可獨立運作。
+餘下事項：
+
+- 尚未有真實課程，訓練班報名流程未做過端到端實測；待開班後應以「真實課程」行一次報名，確認 `refCode` 回傳及每班 Sheet 收到資料。
+- 部署前提：Vercel 設好 `MEMBER_SKW_APIKEY`，主 `Code.gs` 已部署為「任何人」可執行 Web App，並喺 `Config` 設定 `API_KEY_HASH`（可經 `getHealthCheck` 驗證，此 action 免 API Key；v4.0.1 會回報 `version: 4.0.1`）。
 
 ## 本機及 Vercel 設定
 

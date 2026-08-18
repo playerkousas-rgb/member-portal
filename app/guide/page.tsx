@@ -44,6 +44,19 @@ export default function GuidePage() {
         </ol>
       </section>
 
+      <section className="panel">
+        <h2>📘 守則及指引</h2>
+        <p style={{ fontSize: 13.5, marginBottom: 8 }}>
+          借場、借物資及閉路電視等守則已內建於本平台，無需另開網頁：
+        </p>
+        <ul style={{ paddingLeft: 20, lineHeight: 2, fontSize: 13.5 }}>
+          <li><Link href="/rules/venue">借場規則及程序</Link></li>
+          <li><Link href="/rules/venue-terms">場地一般使用條件</Link></li>
+          <li><Link href="/rules/cctv">閉路電視監察措施指引</Link></li>
+          <li><Link href="/rules/stock">借物資規定</Link></li>
+        </ul>
+      </section>
+
       <p className="hint">請記低提交後顯示嘅參考編號，以便向區會查詢。</p>
     </>
   );

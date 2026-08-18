@@ -148,11 +148,16 @@ receiptFileName, receiptMimeType, receiptDataUrl
 { "ok": false, "error": "可安全顯示俾用戶嘅訊息" }
 ```
 
-## 未完成後台 TODO
+## 後台實作狀態（v4.0.1 已核對）
 
-主 `scout-district-portal/gs/Code.gs` 尚要加入：
+主 `scout-district-portal/gs/Code.gs`（統一後台 v4.0.1）已實作：
 
-1. 公開 `listCourseLinks`；
-2. 公開 `submitCourseReg` 及每班 `addReg` 轉發。
+1. ✅ 公開 `listCourseLinks`（`listCourseLinks_` + `courseLinkPublic_` 清洗，不含 script URL / key / driveFolderId）；
+2. ✅ 公開 `submitCourseReg`（`submitCourseReg_`：驗證課程、quota、**deadline（v4.0.1）**、server 讀 key → 轉發每班 `addReg` → 回傳 `refCode`）；
+3. ✅ 每班 `gs/Code.gs.course.js` 嘅 `addReg`（防重複、入數紙存 Drive、回傳 `refCode`）。
 
-成員系統唔應為此保留另一份 `Code.gs`；後台修正必須落喺管理系統唯一來源。
+欄位差距已修正（v4.0.1，commit fb82bba）：
+
+- `submitCourseReg_` 轉發 payload 已加入 `extra: b.extra || ''`；member 表單日後加入「附加資料」輸入框即可直通每班 Script，無需再改 proxy（`POST_FIELDS` 已有 `extra` 白名單）。
+
+成員系統唔應為此保留另一份 `Code.gs`；任何後台修正必須落喺管理系統唯一來源。

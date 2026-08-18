@@ -17,6 +17,11 @@ const SERVICES = [
     tag: '公開提交', external: false,
   },
   {
+    href: '/calendar', icon: '📅', title: '區會行事曆',
+    desc: '查看區總部場地借用狀況（申請借用／確認借用狀態）。',
+    tag: '查閱', external: false,
+  },
+  {
     href: '/training', icon: '🎓', title: '訓練班報名',
     desc: '瀏覽開放中嘅訓練班；報名會轉發到該班專屬收表 Sheet。',
     tag: '公開報名', external: false,
@@ -30,6 +35,11 @@ const SERVICES = [
     href: '/activity', icon: '📋', title: '旅團活動知會',
     desc: '查看公開知會，或將旅團戶外活動資料提交到主 Sheet 存檔。',
     tag: '查看／提交', external: false,
+  },
+  {
+    href: '/rules', icon: '📘', title: '守則及指引',
+    desc: '借場規則、場地使用條件、閉路電視指引及借物資規定（內建）。',
+    tag: '查閱', external: false,
   },
 ];
 
