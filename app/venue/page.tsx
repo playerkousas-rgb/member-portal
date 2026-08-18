@@ -99,7 +99,8 @@ export default function VenuePage() {
           詳細守則（內建於本平台）：
           <Link href={withDistrict('/rules/venue')}>借場規則及程序</Link> ·
           <Link href={withDistrict('/rules/venue-terms')}>場地一般使用條件</Link> ·
-          <Link href={withDistrict('/rules/cctv')}>閉路電視監察措施指引</Link>
+          <Link href={withDistrict('/rules/cctv')}>閉路電視監察措施指引</Link> ·
+          <Link href={withDistrict('/calendar')}>區總部行事曆</Link>
         </div>
       </section>
 

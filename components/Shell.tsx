@@ -13,9 +13,10 @@ import {
 import type { DistrictConfig, SystemState } from '@/lib/types';
 import { useDistrict } from '@/lib/useDistrict';
 
-const PUBLIC_PATHS = ['/', '/districts', '/guide', '/rules', '/rules/venue', '/rules/venue-terms', '/rules/cctv', '/rules/stock'];
+const PUBLIC_PATHS = ['/', '/districts', '/guide', '/rules', '/calendar', '/rules/venue', '/rules/venue-terms', '/rules/cctv', '/rules/stock'];
 const NAV_ITEMS = [
   { href: '/', label: '🏠 公開服務' },
+  { href: '/calendar', label: '📅 區會行事曆' },
   { href: '/districts', label: '🌏 使用地區' },
   { href: '/guide', label: '📖 使用指南' },
   { href: '/rules', label: '📘 守則及指引' },

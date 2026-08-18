@@ -44,10 +44,6 @@ export default function StockRulesPage() {
         <div className="note">
           💡 借用前請先查看可借物資及可借數量；批核結果以區會確認回覆為準。
         </div>
-
-        <p className="src-note">
-          本頁內容參考香港童軍總會港島地域「借用物資程序與規則」改編為筲箕灣區版本；如有修訂，以區會公佈為準。
-        </p>
       </article>
     </>
   );
