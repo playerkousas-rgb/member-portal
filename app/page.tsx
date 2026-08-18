@@ -31,6 +31,11 @@ const SERVICES = [
     desc: '查看公開知會，或將旅團戶外活動資料提交到主 Sheet 存檔。',
     tag: '查看／提交', external: false,
   },
+  {
+    href: '/rules', icon: '📘', title: '守則及指引',
+    desc: '借場規則、場地使用條件、閉路電視指引及借物資規定（內建）。',
+    tag: '查閱', external: false,
+  },
 ];
 
 export default function HomePage() {

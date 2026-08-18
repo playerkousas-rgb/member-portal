@@ -95,6 +95,12 @@ export default function VenuePage() {
       <section className="panel" style={{ borderLeft: '4px solid #1565c0' }}>
         <h2>📋 借用規定</h2>
         <div style={{ fontSize: 13, whiteSpace: 'pre-line', lineHeight: 1.9 }}>{VENUE_RULES}</div>
+        <div className="agree-rules">
+          詳細守則（內建於本平台）：
+          <Link href={withDistrict('/rules/venue')}>借場規則及程序</Link> ·
+          <Link href={withDistrict('/rules/venue-terms')}>場地一般使用條件</Link> ·
+          <Link href={withDistrict('/rules/cctv')}>閉路電視監察措施指引</Link>
+        </div>
       </section>
 
       <section className="panel">

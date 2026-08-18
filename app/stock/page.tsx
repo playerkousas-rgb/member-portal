@@ -113,6 +113,10 @@ export default function StockPage() {
       <section className="panel" style={{ borderLeft: '4px solid #1565c0' }}>
         <h2>📋 借用規定</h2>
         <div style={{ fontSize: 13, whiteSpace: 'pre-line', lineHeight: 1.9 }}>{STOCK_RULES}</div>
+        <div className="agree-rules">
+          詳細守則（內建於本平台）：
+          <Link href={withDistrict('/rules/stock')}>借物資規定</Link>
+        </div>
       </section>
 
       <section className="panel">
