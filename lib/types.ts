@@ -23,7 +23,14 @@ export interface SubmissionMeta {
 }
 
 export interface SubmissionResult {
+  /** 批次申請編號；單項表單則為該項記錄編號。 */
   refCode: string;
+  /** 多項物資申請寫入 Sheet 後，各項記錄的原始編號。 */
+  refCodes?: string[];
+  submittedCount?: number;
+  requestedCount?: number;
+  /** 極少數上游部分失敗時，提醒使用者不要整批重複遞交。 */
+  partialError?: string;
 }
 
 export interface Venue {

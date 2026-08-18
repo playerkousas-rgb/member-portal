@@ -171,6 +171,9 @@ export const api = {
   submitStockRequest: (payload: UnknownRecord, meta: SubmissionMeta): Promise<ApiResult<SubmissionResult>> =>
     callPost('submitStockRequest', { ...payload, ...meta }),
 
+  submitStockBatchRequest: (payload: UnknownRecord, meta: SubmissionMeta): Promise<ApiResult<SubmissionResult>> =>
+    callPost('submitStockBatchRequest', { ...payload, ...meta }),
+
   submitActivityNotice: (payload: UnknownRecord, meta: SubmissionMeta): Promise<ApiResult<SubmissionResult>> =>
     callPost('submitActivityNotice', { ...payload, ...meta }),
 

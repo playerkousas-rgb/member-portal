@@ -13,13 +13,13 @@ import {
 import type { DistrictConfig, SystemState } from '@/lib/types';
 import { useDistrict } from '@/lib/useDistrict';
 
-const PUBLIC_PATHS = ['/', '/districts', '/guide', '/rules', '/calendar', '/rules/venue', '/rules/venue-terms', '/rules/cctv', '/rules/stock'];
+const PUBLIC_PATHS = ['/', '/districts', '/guide', '/rules', '/calendar', '/contact', '/rules/venue', '/rules/venue-terms', '/rules/cctv', '/rules/stock'];
 const NAV_ITEMS = [
   { href: '/', label: '🏠 公開服務' },
-  { href: '/calendar', label: '📅 區會行事曆' },
   { href: '/districts', label: '🌏 使用地區' },
   { href: '/guide', label: '📖 使用指南' },
   { href: '/rules', label: '📘 守則及指引' },
+  { href: '/contact', label: '☎️ 聯絡及查詢' },
 ];
 
 export default function Shell({ children }: { children: React.ReactNode }) {
@@ -136,8 +136,10 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         <SocialLinks links={district?.links} variant="footer" districtName={district?.name} />
         <div>{PLATFORM_COPYRIGHT}</div>
         <div style={{ marginTop: 6 }}>公開成員服務 · 所有管理及批核由區管理系統處理</div>
-        <div style={{ marginTop: 8 }}>
-          <Link href={withDistrict('/guide')} style={{ color: '#64748b', fontSize: 12 }}>使用指南</Link>
+        <div className="footer-links">
+          <Link href={withDistrict('/guide')}>使用指南</Link>
+          <span>·</span>
+          <Link href={withDistrict('/contact')}>聯絡及查詢</Link>
         </div>
       </footer>
     </>

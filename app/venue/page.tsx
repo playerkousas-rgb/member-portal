@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { AntiSpamField, getSubmissionMeta } from '@/components/AntiSpamField';
+import TeamupCalendar from '@/components/TeamupCalendar';
 import { api } from '@/lib/api';
 import { VENUE_RULES } from '@/lib/publicContent';
 import type { Venue } from '@/lib/types';
@@ -31,8 +32,13 @@ export default function VenuePage() {
 
   useEffect(() => {
     api.listVenues().then((result) => {
-      if (result.ok && result.data) setVenues(result.data);
-      else setLoadError(result.error || '未能載入場地。');
+      if (result.ok && result.data) {
+        setVenues(result.data);
+        // 本區現時只有區總部一個可借場地，毋須申請人再揀一次。
+        setVenueId(result.data[0]?.venueId || '');
+      } else {
+        setLoadError(result.error || '未能載入場地。');
+      }
       setLoading(false);
     });
   }, []);
@@ -89,8 +95,10 @@ export default function VenuePage() {
   return (
     <>
       <Link href={withDistrict('/')} className="backlink">← 返回服務首頁</Link>
-      <h1 className="page-title">🏛 借用場地</h1>
-      <p className="page-sub">由共用主 Sheet 讀取場地選項。提交後申請狀態只會由區管理系統處理。</p>
+      <h1 className="page-title">🏛 借用區總部</h1>
+      <p className="page-sub">先用 Teamup 查看區總部使用情況，再於同一頁填寫借用申請。</p>
+
+      <TeamupCalendar />
 
       <section className="panel" style={{ borderLeft: '4px solid #1565c0' }}>
         <h2>📋 借用規定</h2>
@@ -99,24 +107,8 @@ export default function VenuePage() {
           詳細守則（內建於本平台）：
           <Link href={withDistrict('/rules/venue')}>借場規則及程序</Link> ·
           <Link href={withDistrict('/rules/venue-terms')}>場地一般使用條件</Link> ·
-          <Link href={withDistrict('/rules/cctv')}>閉路電視監察措施指引</Link> ·
-          <Link href={withDistrict('/calendar')}>區總部行事曆</Link>
+          <Link href={withDistrict('/rules/cctv')}>閉路電視監察措施指引</Link>
         </div>
-      </section>
-
-      <section className="panel">
-        <h2>可借場地</h2>
-        {loading && <div className="empty">載入中…</div>}
-        {loadError && <div className="err">{loadError}</div>}
-        {!loading && !loadError && venues.length === 0 && <div className="empty">暫未有場地開放申請。</div>}
-        {venues.map((venue) => (
-          <div className="item-row" key={venue.venueId}>
-            <span className="iname">{venue.name}</span>
-            {venue.location && <span className="icat">📍 {venue.location}</span>}
-            {venue.capacity > 0 && <span className="icat">容納 {venue.capacity} 人</span>}
-            {venue.note && <span style={{ fontSize: 12, color: '#64748b' }}>{venue.note}</span>}
-          </div>
-        ))}
       </section>
 
       <form className="panel" onSubmit={submit}>
@@ -124,11 +116,21 @@ export default function VenuePage() {
         {error && <div className="err" role="alert">{error}</div>}
 
         <div className="field">
-          <label>場地 <span className="req">*</span></label>
-          <select value={venueId} onChange={(event) => setVenueId(event.target.value)} disabled={loading || venues.length === 0}>
-            <option value="">— 請選擇 —</option>
-            {venues.map((venue) => <option key={venue.venueId} value={venue.venueId}>{venue.name}</option>)}
-          </select>
+          <label>借用地點</label>
+          {loading ? (
+            <div className="fixed-venue">載入區總部資料中…</div>
+          ) : loadError ? (
+            <div className="err" style={{ marginBottom: 0 }}>{loadError}</div>
+          ) : (
+            <div className="fixed-venue">
+              <span className="fixed-venue-icon">🏛</span>
+              <span>
+                <strong>{venues[0]?.name || '筲箕灣區總部'}</strong>
+                {venues[0]?.location && <small>📍 {venues[0].location}</small>}
+              </span>
+            </div>
+          )}
+          <p className="helptext">本區現時只有區總部可供借用，毋須另外選擇場地。</p>
         </div>
 
         <div className="frow">
