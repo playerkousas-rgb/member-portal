@@ -10,8 +10,8 @@ export default function GuidePage() {
       <section className="panel">
         <h2>🏛 借用場地</h2>
         <ol style={{ paddingLeft: 20, lineHeight: 2, fontSize: 13.5 }}>
-          <li>查看由主 Sheet 提供嘅可借場地。</li>
-          <li>填寫時段、用途及聯絡資料，再提交申請。</li>
+          <li>進入借場頁後，先在 Teamup 行事曆查看區總部使用情況。</li>
+          <li>選擇合適時段，填寫用途及聯絡資料，再提交申請。</li>
           <li>提交唔代表已獲批准；請等區會跟進。</li>
         </ol>
       </section>
@@ -19,8 +19,9 @@ export default function GuidePage() {
       <section className="panel">
         <h2>📦 借用物資</h2>
         <ol style={{ paddingLeft: 20, lineHeight: 2, fontSize: 13.5 }}>
-          <li>查看物資及目前可借數量。</li>
-          <li>選擇數量、借還日期並提交。</li>
+          <li>先填寫一次申請人、用途及借還日期。</li>
+          <li>在每款可借物資旁輸入需要數量；可同時選擇多款物資。</li>
+          <li>最後按一次遞交，所有項目會以同一批次編號寫入區會 Sheet，方便跟進。</li>
           <li>庫存扣減、歸還及批核只會喺區管理系統進行。</li>
         </ol>
       </section>

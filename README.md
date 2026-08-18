@@ -15,12 +15,19 @@
 | 頁面 | 公開讀取 | 公開提交 |
 |---|---|---|
 | `/venue` | `listVenues` | `submitVenueRequest` |
-| `/stock` | `listItems` | `submitStockRequest` |
+| `/stock` | `listItems`（主 Sheet 即時庫存） | `submitStockBatchRequest`（proxy；支援多項一次遞交） |
 | `/training` | `listCourseLinks` | `submitCourseReg` → 每班 Script `addReg` |
 | `/activity` | `listActivityNotices` | `submitActivityNotice` |
 | 全站 | `getConfig`、`getSystem` | 系統鎖定時 server 拒絕提交 |
 
-`/course` 只係舊網址，會轉到 `/training`。
+`/course` 只係舊網址，會轉到 `/training`；`/calendar` 係舊網址，會轉到 `/venue#availability`。
+
+### 多項物資申請
+
+`/stock` 只需填寫一次申請人資料，然後可在物資清單旁輸入多個數量。proxy 會先以 `listItems` 核對主 Sheet 最新庫存，再以一個批次編號提交：
+
+- 後台支援 `submitStockBatchRequest` 時，整批以一張申請記錄交管理系統一次批核；
+- 未升級的後台會自動相容現有 `submitStockRequest`，逐行寫入 `StockRequests`，並在用途欄加同一個批次編號，避免舊部署即時失效。
 
 ## 絕對分工
 

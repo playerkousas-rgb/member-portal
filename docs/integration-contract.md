@@ -67,7 +67,7 @@ note
 }
 ```
 
-### `submitStockRequest`
+### `submitStockRequest`（舊版單項相容）
 
 ```json
 {
@@ -83,6 +83,29 @@ note
   "position": "..."
 }
 ```
+
+### `submitStockBatchRequest`（建議後台原生支援）
+
+```json
+{
+  "batchRef": "SB-20260818-A1B2C3",
+  "items": [
+    { "itemId": "item-1", "qty": 2 },
+    { "itemId": "item-2", "qty": 1 }
+  ],
+  "borrowDate": "YYYY-MM-DD",
+  "returnDate": "YYYY-MM-DD",
+  "purpose": "...",
+  "name": "...",
+  "phone": "...",
+  "email": "...",
+  "troop": "...",
+  "position": "...",
+  "agreeRules": true
+}
+```
+
+成員端永遠只提交一次。member proxy 會先以 `listItems` 核對最新庫存，再優先呼叫原生 batch action；後台未升級時，會相容地拆成多個 `submitStockRequest`，並在各行用途欄加入同一批次編號。原生 action 應將 `items` 存成同一申請，以便管理系統一次批核整批。
 
 ### `submitActivityNotice`
 

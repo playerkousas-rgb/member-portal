@@ -28,7 +28,11 @@ const POST_FIELDS: Record<string, string[]> = {
     'venueId', 'startDate', 'endDate', 'name', 'phone', 'email', 'troop', 'position', 'purpose',
   ],
   submitStockRequest: [
-    'itemId', 'qty', 'purpose', 'borrowDate', 'returnDate', 'name', 'phone', 'email', 'troop', 'position',
+    'itemId', 'qty', 'purpose', 'borrowDate', 'returnDate', 'name', 'phone', 'email', 'troop', 'position', 'agreeRules',
+  ],
+  // 成員端一次提交多款物資；proxy 會用同一批次編號安全地寫入現有 StockRequests。
+  submitStockBatchRequest: [
+    'items', 'purpose', 'borrowDate', 'returnDate', 'name', 'phone', 'email', 'troop', 'position', 'agreeRules',
   ],
   submitActivityNotice: [
     'year', 'section', 'nature', 'troop', 'activityName', 'startDateTime', 'endDateTime', 'location',
@@ -47,6 +51,7 @@ const POST_FIELDS: Record<string, string[]> = {
 const REQUIRED_FIELDS: Record<string, string[]> = {
   submitVenueRequest: ['venueId', 'startDate', 'endDate', 'name', 'phone'],
   submitStockRequest: ['itemId', 'qty', 'borrowDate', 'returnDate', 'name', 'phone'],
+  submitStockBatchRequest: ['borrowDate', 'returnDate', 'name', 'phone'],
   submitActivityNotice: ['section', 'nature', 'troop', 'activityName', 'startDateTime', 'endDateTime', 'location', 'leaderName', 'leaderPhone'],
   submitCourseReg: ['courseId', 'memberType', 'nameZh', 'phone', 'email', 'receiptDataUrl'],
 };
@@ -158,6 +163,29 @@ function publicNotice(value: unknown) {
   };
 }
 
+type StockSelection = { itemId: string; qty: number };
+
+function stockSelections(value: unknown): StockSelection[] {
+  if (!Array.isArray(value) || value.length > 100) return [];
+  const seen = new Set<string>();
+  const selections: StockSelection[] = [];
+  for (const entry of value) {
+    const row = asRecord(entry);
+    const itemId = text(row.itemId).trim().slice(0, 200);
+    const qty = number(row.qty);
+    if (!itemId || seen.has(itemId) || !Number.isInteger(qty) || qty < 1 || qty > 999) return [];
+    seen.add(itemId);
+    selections.push({ itemId, qty });
+  }
+  return selections;
+}
+
+function stockBatchRef() {
+  const date = new Date().toISOString().slice(0, 10).replaceAll('-', '');
+  const suffix = crypto.randomUUID().replaceAll('-', '').slice(0, 6).toUpperCase();
+  return `SB-${date}-${suffix}`;
+}
+
 function sanitizeGet(action: string, data: unknown): unknown {
   if (action === 'getConfig') {
     const row = asRecord(data);
@@ -263,6 +291,11 @@ function validateSubmission(action: string, body: JsonRecord): string {
   if (action === 'submitStockRequest' && (number(body.qty) < 1 || number(body.qty) > 999)) {
     return '借用數量不正確。';
   }
+  if (action === 'submitStockBatchRequest') {
+    if (!stockSelections(body.items).length) return '請選擇最少一項物資，並填寫正確數量。';
+    if (text(body.returnDate) < text(body.borrowDate)) return '歸還日期不可早過借出日期。';
+    if (body.agreeRules !== true) return '請先閱讀並同意借用規定。';
+  }
   if (action === 'submitCourseReg') {
     const receipt = text(body.receiptDataUrl);
     if (!/^data:image\/(jpeg|jpg|png|webp);base64,/i.test(receipt)) return '入數紙格式不正確。';
@@ -277,6 +310,89 @@ function pickPayload(action: string, body: JsonRecord): JsonRecord {
     if (body[field] !== undefined) output[field] = body[field];
   }
   return output;
+}
+
+async function submitStockBatch(apiBase: string, apiKey: string, body: JsonRecord) {
+  const selections = stockSelections(body.items);
+  const inventoryResult = await fetchGet(apiBase, apiKey, 'listItems');
+  if (!inventoryResult.ok) {
+    return { ok: false, error: inventoryResult.error || '未能核對最新物資數量。' };
+  }
+
+  const inventory = new Map<string, ReturnType<typeof publicItem>>();
+  (Array.isArray(inventoryResult.data) ? inventoryResult.data : []).forEach((value) => {
+    const item = publicItem(value);
+    if (item.itemId) inventory.set(item.itemId, item);
+  });
+  for (const selection of selections) {
+    const item = inventory.get(selection.itemId);
+    if (!item) return { ok: false, error: '部分物資已停止借用，請更新清單後再試。' };
+    if (selection.qty > item.availableQty) {
+      return { ok: false, error: `${item.name}目前只可借 ${item.availableQty} ${item.unit || '件'}，請修改數量。` };
+    }
+  }
+
+  const batchRef = stockBatchRef();
+  const common = {
+    purpose: text(body.purpose), borrowDate: text(body.borrowDate), returnDate: text(body.returnDate),
+    name: text(body.name), phone: text(body.phone), email: text(body.email),
+    troop: text(body.troop), position: text(body.position), agreeRules: true,
+  };
+
+  // 新版 Apps Script 可原生將多項物資存成一張申請並一次批核；未升級的區會則安全回退到現有逐行記錄。
+  const native = await fetchPost(apiBase, apiKey, 'submitStockBatchRequest', {
+    ...common, items: selections, batchRef,
+  });
+  if (native.ok) {
+    const result = asRecord(native.data);
+    const nativeRefs = Array.isArray(result.refCodes) ? result.refCodes.map(text).filter(Boolean) : [];
+    return {
+      ok: true,
+      data: {
+        refCode: text(result.refCode) || batchRef,
+        refCodes: nativeRefs,
+        submittedCount: number(result.submittedCount) || selections.length,
+        requestedCount: selections.length,
+      },
+    };
+  }
+  if (!/未知.*action|unknown.*action/i.test(text(native.error))) {
+    return { ok: false, error: native.error || '後台未能接收物資申請。' };
+  }
+
+  const refCodes: string[] = [];
+  const failures: string[] = [];
+  for (let index = 0; index < selections.length; index += 1) {
+    const selection = selections[index];
+    const item = inventory.get(selection.itemId);
+    const batchNote = `【批次 ${batchRef}｜第 ${index + 1}/${selections.length} 項】`;
+    const result = await fetchPost(apiBase, apiKey, 'submitStockRequest', {
+      ...common,
+      itemId: selection.itemId,
+      qty: selection.qty,
+      purpose: common.purpose ? `${common.purpose}\n${batchNote}` : batchNote,
+    });
+    if (result.ok) {
+      const row = asRecord(result.data);
+      refCodes.push(text(row.refCode));
+    } else {
+      failures.push(`${item?.name || selection.itemId}：${result.error || '提交失敗'}`);
+    }
+  }
+
+  if (!refCodes.length) return { ok: false, error: failures[0] || '物資申請提交失敗。' };
+  return {
+    ok: true,
+    data: {
+      refCode: batchRef,
+      refCodes: refCodes.filter(Boolean),
+      submittedCount: refCodes.length,
+      requestedCount: selections.length,
+      partialError: failures.length
+        ? `有 ${failures.length} 項未能提交（${failures.join('；')}）。已成功的項目請勿重複遞交，並請聯絡區會。`
+        : '',
+    },
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -348,6 +464,12 @@ export async function POST(request: NextRequest) {
     const state = asRecord(system.data);
     if (state.locked === true || text(state.locked).toUpperCase() === 'TRUE') {
       return noStoreJson({ ok: false, error: text(state.lockMessage) || '系統維護中，暫停提交。' }, 423);
+    }
+
+    if (action === 'submitStockBatchRequest') {
+      const batch = await submitStockBatch(district.apiBase, apiKey, body);
+      if (!batch.ok) return noStoreJson({ ok: false, error: batch.error || '物資申請提交失敗。' }, 502);
+      return noStoreJson({ ok: true, data: batch.data });
     }
 
     const upstream = await fetchPost(district.apiBase, apiKey, action, pickPayload(action, body));
