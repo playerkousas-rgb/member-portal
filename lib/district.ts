@@ -21,6 +21,7 @@ export interface DistrictLinks {
   website?: string;
   facebook?: string;
   instagram?: string;
+  contact?: string;
 }
 
 export interface DistrictInfo {
@@ -54,6 +55,7 @@ export const DISTRICTS = {
       website: 'https://www.skwscout.org.hk/',
       facebook: 'https://www.facebook.com/skwscout/',
       instagram: 'https://www.instagram.com/skwscout/',
+      contact: '/contact',
     },
   },
   // 範例：接入柴灣區時打開並填入該區自己的 exec 網址

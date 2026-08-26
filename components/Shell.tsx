@@ -18,7 +18,6 @@ const NAV_ITEMS = [
   { href: '/', label: '🏠 公開服務' },
   { href: '/districts', label: '🌏 使用地區' },
   { href: '/guide', label: '📖 使用指南' },
-  { href: '/rules', label: '📘 守則及指引' },
   { href: '/contact', label: '☎️ 聯絡及查詢' },
 ];
 

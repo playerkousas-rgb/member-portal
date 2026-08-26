@@ -8,12 +8,12 @@ const ANNOUNCEMENT_URL = 'https://scout-circulars.vercel.app/';
 const SERVICES = [
   {
     href: '/venue', icon: '🏛', title: '借用區總部',
-    desc: '先用 Teamup 查看區總部行事曆，再填寫場地借用申請。',
+    desc: '先用 Teamup 查看區總部行事曆，再填寫場地借用申請（內置借場守則及指引）。',
     tag: '查看／提交', external: false,
   },
   {
     href: '/stock', icon: '📦', title: '借用物資',
-    desc: '填一次申請人資料，可同時為多款 Sheet 物資填數量並一併遞交。',
+    desc: '填一次申請人資料，可同時為多款 Sheet 物資填數量並一併遞交（內置借物資規定）。',
     tag: '公開提交', external: false,
   },
   {
@@ -31,16 +31,6 @@ const SERVICES = [
     desc: '查看公開知會，或將旅團戶外活動資料提交到主 Sheet 存檔。',
     tag: '查看／提交', external: false,
   },
-  {
-    href: '/rules', icon: '📘', title: '守則及指引',
-    desc: '借場規則、場地使用條件、閉路電視指引及借物資規定（內建）。',
-    tag: '查閱', external: false,
-  },
-  {
-    href: '/contact', icon: '☎️', title: '聯絡及查詢',
-    desc: '查看區總部電話、傳真及各部門電郵聯絡資料。',
-    tag: '聯絡資料', external: false,
-  },
 ];
 
 export default function HomePage() {
@@ -51,7 +41,13 @@ export default function HomePage() {
       <div className="hero">
         <h1>{district?.name} — 成員服務 👋</h1>
         <p>呢度係區為旅團及成員提供嘅自助服務入口。填表即可提交，無需登入；區會收到後會跟進處理。</p>
-        <SocialLinks links={district?.links} variant="hero" districtName={district?.name} />
+        <SocialLinks
+          links={district?.links}
+          variant="hero"
+          districtName={district?.name}
+          showContact
+          contactHref={withDistrict('/contact')}
+        />
       </div>
 
       <section
