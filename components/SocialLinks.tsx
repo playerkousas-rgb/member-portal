@@ -1,19 +1,27 @@
+import Link from 'next/link';
 import type { DistrictLinks } from '@/lib/district';
 
 type Variant = 'footer' | 'hero' | 'panel';
 
-const ITEMS: Array<{
-  key: keyof DistrictLinks;
+type SocialKey = keyof DistrictLinks | 'contact';
+
+interface SocialItemConfig {
+  key: SocialKey;
   label: string;
   short: string;
   className: string;
-}> = [
-  { key: 'instagram', label: 'Instagram', short: 'IG', className: 'social-ig' },
-  { key: 'facebook', label: 'Facebook', short: 'FB', className: 'social-fb' },
-  { key: 'website', label: '區會網頁', short: '網頁', className: 'social-web' },
+  defaultHref?: string;
+  isExternal?: boolean;
+}
+
+const ITEMS: SocialItemConfig[] = [
+  { key: 'instagram', label: 'Instagram', short: 'IG', className: 'social-ig', isExternal: true },
+  { key: 'facebook', label: 'Facebook', short: 'FB', className: 'social-fb', isExternal: true },
+  { key: 'website', label: '區會網頁', short: '網頁', className: 'social-web', isExternal: true },
+  { key: 'contact', label: '聯絡及查詢', short: '查詢', className: 'social-contact', defaultHref: '/contact', isExternal: false },
 ];
 
-function Icon({ kind }: { kind: keyof DistrictLinks }) {
+function Icon({ kind }: { kind: SocialKey }) {
   if (kind === 'instagram') {
     return (
       <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -33,6 +41,13 @@ function Icon({ kind }: { kind: keyof DistrictLinks }) {
       </svg>
     );
   }
+  if (kind === 'contact') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
+        <path d="M6.62 10.79a15.053 15.053 0 006.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" />
+      </svg>
+    );
+  }
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <circle cx="12" cy="12" r="8.2" fill="none" stroke="currentColor" strokeWidth="1.8" />
@@ -46,39 +61,81 @@ export default function SocialLinks({
   links,
   variant = 'footer',
   districtName,
+  showContact,
+  contactHref,
 }: {
   links?: DistrictLinks;
   variant?: Variant;
   districtName?: string;
+  showContact?: boolean;
+  contactHref?: string;
 }) {
-  const available = ITEMS.filter((item) => !!links?.[item.key]);
-  if (!available.length) return null;
+  const shouldIncludeContact = showContact ?? (variant === 'hero');
 
-  const heading = districtName ? `關注${districtName}` : '關注區會';
+  const resolvedItems = ITEMS.map((item) => {
+    if (item.key === 'contact') {
+      if (!shouldIncludeContact) return null;
+      const href = contactHref || links?.contact || item.defaultHref || '/contact';
+      return { ...item, href };
+    }
+    const href = links?.[item.key as keyof DistrictLinks];
+    if (!href) return null;
+    return { ...item, href };
+  }).filter((item): item is SocialItemConfig & { href: string } => !!item);
+
+  if (!resolvedItems.length) return null;
+
+  const hasContact = resolvedItems.some((item) => item.key === 'contact');
+  const heading = districtName
+    ? (hasContact ? `關注及聯絡${districtName}` : `關注${districtName}`)
+    : (hasContact ? '關注及聯絡區會' : '關注區會');
 
   return (
     <div className={`social-links social-${variant}`}>
       {variant !== 'footer' && <div className="social-heading">{heading}</div>}
       <div className="social-row">
-        {available.map((item) => (
-          <a
-            key={item.key}
-            className={`social-btn ${item.className}`}
-            href={links?.[item.key]}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={`${heading} ${item.label}`}
-            title={item.label}
-          >
-            <span className="social-ico">
-              <Icon kind={item.key} />
-            </span>
-            <span className="social-label">
-              <strong>{item.short}</strong>
-              <em>{item.label}</em>
-            </span>
-          </a>
-        ))}
+        {resolvedItems.map((item) => {
+          const isInternal = !item.isExternal && item.href.startsWith('/');
+          const content = (
+            <>
+              <span className="social-ico">
+                <Icon kind={item.key} />
+              </span>
+              <span className="social-label">
+                <strong>{item.short}</strong>
+                <em>{item.label}</em>
+              </span>
+            </>
+          );
+
+          if (isInternal) {
+            return (
+              <Link
+                key={item.key}
+                className={`social-btn ${item.className}`}
+                href={item.href}
+                aria-label={`${districtName || '區會'} ${item.label}`}
+                title={item.label}
+              >
+                {content}
+              </Link>
+            );
+          }
+
+          return (
+            <a
+              key={item.key}
+              className={`social-btn ${item.className}`}
+              href={item.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`${districtName || '區會'} ${item.label}`}
+              title={item.label}
+            >
+              {content}
+            </a>
+          );
+        })}
       </div>
     </div>
   );

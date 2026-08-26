@@ -1,9 +1,17 @@
+'use client';
 import Link from 'next/link';
+import { useDistrict } from '@/lib/useDistrict';
 
 export default function VenueRulesPage() {
+  const { withDistrict } = useDistrict();
+
   return (
     <>
-      <Link href="/rules" className="backlink">← 返回守則及指引</Link>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 14 }}>
+        <Link href={withDistrict('/venue')} className="backlink" style={{ marginBottom: 0 }}>← 返回借用區總部</Link>
+        <span style={{ color: 'var(--muted)', fontSize: 12 }}>·</span>
+        <Link href={withDistrict('/')} style={{ color: 'var(--muted)', fontSize: 13 }}>返回服務首頁</Link>
+      </div>
       <article className="doc">
         <div className="doc-head">
           <h1>🏛 借場規則及程序</h1>
@@ -25,7 +33,7 @@ export default function VenueRulesPage() {
 
         <h2>丙、手續</h2>
         <ol>
-          <li>申請者應先在「<Link href="/venue#availability" style={{ color: 'var(--p2)', fontWeight: 700, textDecoration: 'underline' }}>借用區總部</Link>」頁查看內嵌 Teamup 行事曆，了解場地使用情況。</li>
+          <li>申請者應先在「<Link href={withDistrict('/venue')} style={{ color: 'var(--p2)', fontWeight: 700, textDecoration: 'underline' }}>借用區總部</Link>」頁查看內嵌 Teamup 行事曆，了解場地使用情況。</li>
           <li>借用旅團或其代理須先於行事曆上輸入相關資料（旅團及活動名稱、參加人數、負責領袖姓名、職位及負責領袖電話）。</li>
           <li>收到申請後，筲箕灣區行政部會審視有關申請，若申請獲批，會將行事曆上該申請由「申請借用區總部」轉為「確認借用區總部」。</li>
           <li>最早可於活動前三個月遞交申請。</li>
@@ -55,7 +63,7 @@ export default function VenueRulesPage() {
           <li>借用旅團或其代理明白及同意其一切活動均須符合香港法例。</li>
           <li>如申請獲批後，取消借用區總部必須以電郵或電話通知筲箕灣區。</li>
           <li>筲箕灣區保留借用規則及程序的修改及最終闡釋權。</li>
-          <li>請同時清楚閱讀及暸解「<Link href="/rules/venue-terms" style={{ color: 'var(--p2)', fontWeight: 700, textDecoration: 'underline' }}>場地一般使用條件</Link>」。</li>
+          <li>請同時清楚閱讀及暸解「<Link href={withDistrict('/rules/venue-terms')} style={{ color: 'var(--p2)', fontWeight: 700, textDecoration: 'underline' }}>場地一般使用條件</Link>」。</li>
         </ol>
 
         <div className="note">

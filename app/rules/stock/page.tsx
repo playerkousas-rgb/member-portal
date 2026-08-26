@@ -1,9 +1,17 @@
+'use client';
 import Link from 'next/link';
+import { useDistrict } from '@/lib/useDistrict';
 
 export default function StockRulesPage() {
+  const { withDistrict } = useDistrict();
+
   return (
     <>
-      <Link href="/rules" className="backlink">← 返回守則及指引</Link>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 14 }}>
+        <Link href={withDistrict('/stock')} className="backlink" style={{ marginBottom: 0 }}>← 返回借用物資</Link>
+        <span style={{ color: 'var(--muted)', fontSize: 12 }}>·</span>
+        <Link href={withDistrict('/')} style={{ color: 'var(--muted)', fontSize: 13 }}>返回服務首頁</Link>
+      </div>
       <article className="doc">
         <div className="doc-head">
           <h1>📦 借物資規定</h1>

@@ -1,4 +1,6 @@
+'use client';
 import Link from 'next/link';
+import { useDistrict } from '@/lib/useDistrict';
 
 const RULES = [
   {
@@ -32,15 +34,17 @@ const RULES = [
 ];
 
 export default function RulesPage() {
+  const { withDistrict } = useDistrict();
+
   return (
     <>
-      <Link href="/" className="backlink">← 返回服務首頁</Link>
+      <Link href={withDistrict('/')} className="backlink">← 返回服務首頁</Link>
       <h1 className="page-title">📘 守則及指引</h1>
-      <p className="page-sub">以下守則內容已內建於本平台，供旅團及成員查閱。</p>
+      <p className="page-sub">以下守則內容已內建於借用區總部及借用物資頁面，供旅團及成員查閱。</p>
 
       <div className="rules-grid">
         {RULES.map((rule) => (
-          <Link key={rule.href} href={rule.href} className="rule-card">
+          <Link key={rule.href} href={withDistrict(rule.href)} className="rule-card">
             <div className="r-ico">{rule.icon}</div>
             <h3>{rule.title}</h3>
             <div className="r-desc">{rule.desc}</div>

@@ -155,6 +155,7 @@ table.tbl{border-collapse:collapse;width:100%;min-width:700px;font-size:13px;}
 .social-ig .social-ico{background:linear-gradient(135deg,#f9ce34,#ee2a7b 55%,#6228d7);color:#fff;}
 .social-fb .social-ico{background:#1877f2;color:#fff;}
 .social-web .social-ico{background:#0f766e;color:#fff;}
+.social-contact .social-ico{background:#ea580c;color:#fff;}
 .social-btn:hover{transform:translateY(-1px);}
 
 .social-hero{margin-top:16px;align-items:flex-start;}

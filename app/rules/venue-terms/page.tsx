@@ -1,9 +1,17 @@
+'use client';
 import Link from 'next/link';
+import { useDistrict } from '@/lib/useDistrict';
 
 export default function VenueTermsPage() {
+  const { withDistrict } = useDistrict();
+
   return (
     <>
-      <Link href="/rules" className="backlink">← 返回守則及指引</Link>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 14 }}>
+        <Link href={withDistrict('/venue')} className="backlink" style={{ marginBottom: 0 }}>← 返回借用區總部</Link>
+        <span style={{ color: 'var(--muted)', fontSize: 12 }}>·</span>
+        <Link href={withDistrict('/')} style={{ color: 'var(--muted)', fontSize: 13 }}>返回服務首頁</Link>
+      </div>
       <article className="doc">
         <div className="doc-head">
           <h1>📜 場地一般使用條件</h1>
@@ -11,7 +19,7 @@ export default function VenueTermsPage() {
         </div>
 
         <ul>
-          <li>區總部只接受團體申請借用，借用者須遵從「<Link href="/rules/venue" style={{ color: 'var(--p2)', fontWeight: 700, textDecoration: 'underline' }}>借場規則及程序</Link>」。</li>
+          <li>區總部只接受團體申請借用，借用者須遵從「<Link href={withDistrict('/rules/venue')} style={{ color: 'var(--p2)', fontWeight: 700, textDecoration: 'underline' }}>借場規則及程序</Link>」。</li>
           <li>借用團體及其授權使用人在所借用的時段結束後，必須離開區總部。</li>
           <li>任何已預訂時段的團體如不使用場地，須以書面作出事先通知；如未作出事先通知而又未能提供合理解釋，筲箕灣區有權不再接受有關人士或團體的借用申請。</li>
           <li>在天文台發出 8 號熱帶氣旋信號時，請借用團體及其授權使用者儘速離開。</li>

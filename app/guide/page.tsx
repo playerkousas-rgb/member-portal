@@ -1,9 +1,13 @@
+'use client';
 import Link from 'next/link';
+import { useDistrict } from '@/lib/useDistrict';
 
 export default function GuidePage() {
+  const { withDistrict } = useDistrict();
+
   return (
     <>
-      <Link href="/" className="backlink">← 返回服務首頁</Link>
+      <Link href={withDistrict('/')} className="backlink">← 返回服務首頁</Link>
       <h1 className="page-title">📖 公開服務使用指南</h1>
       <p className="page-sub">所有服務無需登入；管理、批核、權限及設定全部由另一套區管理系統處理。</p>
 
@@ -48,13 +52,13 @@ export default function GuidePage() {
       <section className="panel">
         <h2>📘 守則及指引</h2>
         <p style={{ fontSize: 13.5, marginBottom: 8 }}>
-          借場、借物資及閉路電視等守則已內建於本平台，無需另開網頁：
+          借場、借物資及閉路電視等守則已內建於借用區總部及借用物資頁面，無需另開網頁：
         </p>
         <ul style={{ paddingLeft: 20, lineHeight: 2, fontSize: 13.5 }}>
-          <li><Link href="/rules/venue">借場規則及程序</Link></li>
-          <li><Link href="/rules/venue-terms">場地一般使用條件</Link></li>
-          <li><Link href="/rules/cctv">閉路電視監察措施指引</Link></li>
-          <li><Link href="/rules/stock">借物資規定</Link></li>
+          <li><Link href={withDistrict('/rules/venue')}>借場規則及程序</Link></li>
+          <li><Link href={withDistrict('/rules/venue-terms')}>場地一般使用條件</Link></li>
+          <li><Link href={withDistrict('/rules/cctv')}>閉路電視監察措施指引</Link></li>
+          <li><Link href={withDistrict('/rules/stock')}>借物資規定</Link></li>
         </ul>
       </section>
 
