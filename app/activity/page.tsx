@@ -1,10 +1,9 @@
 'use client';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { AntiSpamField, getSubmissionMeta } from '@/components/AntiSpamField';
 import { api } from '@/lib/api';
 import { TROOP_LIST } from '@/lib/publicContent';
-import type { ActivityNotice } from '@/lib/types';
 import { useDistrict } from '@/lib/useDistrict';
 
 const SECTIONS = ['小童軍', '幼童軍', '童軍', '深資童軍', '樂行童軍'];
@@ -13,12 +12,6 @@ const NATURES = ['露營', '宿營', '日營', '遠足', '遠足營', '海上活
 export default function ActivityPage() {
   const { withDistrict } = useDistrict();
   const startedAt = useRef(Date.now());
-  const [notices, setNotices] = useState<ActivityNotice[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState('');
-  const [filterYear, setFilterYear] = useState('');
-  const [filterSection, setFilterSection] = useState('');
-  const [filterNature, setFilterNature] = useState('');
 
   const [troop, setTroop] = useState('');
   const [activityName, setActivityName] = useState('');
@@ -38,24 +31,24 @@ export default function ActivityPage() {
   const [error, setError] = useState('');
   const [doneRef, setDoneRef] = useState('');
 
-  function loadNotices() {
-    setLoading(true);
-    setLoadError('');
-    api.listActivityNotices().then((result) => {
-      if (result.ok && result.data) setNotices(result.data);
-      else setLoadError(result.error || '未能載入活動知會。');
-      setLoading(false);
-    });
+  function resetForm() {
+    startedAt.current = Date.now();
+    setDoneRef('');
+    setTroop('');
+    setActivityName('');
+    setSection('');
+    setNature('');
+    setStartDateTime('');
+    setEndDateTime('');
+    setLocation('');
+    setMembersCount('');
+    setLeadersCount('');
+    setParentsCount('');
+    setLeaderName('');
+    setLeaderPhone('');
+    setLeaderEmail('');
+    setNote('');
   }
-  useEffect(loadNotices, []);
-
-  const years = useMemo(() =>
-    Array.from(new Set(notices.map((notice) => notice.year).filter(Boolean))).sort().reverse(), [notices]);
-  const filtered = useMemo(() => notices.filter((notice) =>
-    (!filterYear || notice.year === filterYear) &&
-    (!filterSection || notice.section === filterSection) &&
-    (!filterNature || notice.nature === filterNature)
-  ), [notices, filterYear, filterSection, filterNature]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -103,14 +96,14 @@ export default function ActivityPage() {
           知會編號：<b style={{ color: '#003366' }}>{doneRef}</b>
         </p>
         <p style={{ color: '#64748b', fontSize: 13, marginTop: 10 }}>
-          知會已提交到區會主 Sheet。如需更改，請聯絡區會並提供以上編號。
+          呢個表單只係將活動知會區會存檔，已提交嘅記錄只會喺區管理系統列出，唔會喺度顯示。
+        </p>
+        <p style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>
+          如需更改，請聯絡區會並提供以上編號。
         </p>
         <div style={{ marginTop: 20, display: 'flex', gap: 10, justifyContent: 'center' }}>
           <Link href={withDistrict('/')} className="btn-ghost">返回首頁</Link>
-          <button className="btn-sm" onClick={() => {
-            startedAt.current = Date.now();
-            setDoneRef(''); setActivityName(''); setNote(''); loadNotices();
-          }}>
+          <button className="btn-sm" onClick={resetForm}>
             再知會一項活動
           </button>
         </div>
@@ -122,42 +115,7 @@ export default function ActivityPage() {
     <>
       <Link href={withDistrict('/')} className="backlink">← 返回服務首頁</Link>
       <h1 className="page-title">📋 旅團活動知會</h1>
-      <p className="page-sub">公開查看已提交知會，或將活動資料交區會存檔。公開清單不會顯示負責領袖聯絡資料。</p>
-
-      <section className="panel">
-        <h2>活動知會一覽</h2>
-        <div className="frow3" style={{ marginBottom: 12 }}>
-          <select className="search-input" value={filterYear} onChange={(event) => setFilterYear(event.target.value)} aria-label="按年份篩選">
-            <option value="">全部年份</option>
-            {years.map((year) => <option key={year} value={year}>{year}</option>)}
-          </select>
-          <select className="search-input" value={filterSection} onChange={(event) => setFilterSection(event.target.value)} aria-label="按支部篩選">
-            <option value="">全部支部</option>
-            {SECTIONS.map((item) => <option key={item} value={item}>{item}</option>)}
-          </select>
-          <select className="search-input" value={filterNature} onChange={(event) => setFilterNature(event.target.value)} aria-label="按性質篩選">
-            <option value="">全部性質</option>
-            {NATURES.map((item) => <option key={item} value={item}>{item}</option>)}
-          </select>
-        </div>
-        {loading && <div className="empty">載入中…</div>}
-        {loadError && <div className="err">{loadError}</div>}
-        {!loading && !loadError && filtered.length === 0 && <div className="empty">暫時未有符合條件嘅活動知會。</div>}
-        {filtered.map((notice) => (
-          <article className="item-row" key={notice.id} style={{ alignItems: 'flex-start' }}>
-            <div style={{ flex: 1 }}>
-              <div className="iname">{notice.activityName}</div>
-              <div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>
-                {notice.troop} · {notice.section} · {notice.nature}
-              </div>
-              <div style={{ fontSize: 12, color: '#64748b' }}>
-                {notice.startDateTime}{notice.endDateTime ? ` → ${notice.endDateTime}` : ''}{notice.location ? ` · ${notice.location}` : ''}
-              </div>
-            </div>
-            {notice.refCode && <span className="icat">{notice.refCode}</span>}
-          </article>
-        ))}
-      </section>
+      <p className="page-sub">將旅團戶外活動資料交區會存檔。已提交嘅知會只會喺區管理系統列出，唔會喺度公開顯示。</p>
 
       <form className="panel" onSubmit={submit}>
         <h2>提交新知會</h2>

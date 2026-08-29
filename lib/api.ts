@@ -4,7 +4,7 @@
  */
 import { resolveDistrictCode } from './district';
 import type {
-  ActivityNotice, ApiResult, CourseLink, DistrictConfig, Item,
+  ApiResult, CourseLink, DistrictConfig, Item,
   SubmissionMeta, SubmissionResult, SystemState, Venue,
 } from './types';
 
@@ -119,27 +119,6 @@ function mapCourse(value: unknown): CourseLink {
   };
 }
 
-function mapNotice(value: unknown): ActivityNotice {
-  const row = asRecord(value);
-  return {
-    id: asString(row.id),
-    refCode: asString(row.refCode),
-    submittedAt: asString(row.submittedAt),
-    year: asString(row.year),
-    section: asString(row.section),
-    nature: asString(row.nature),
-    troop: asString(row.troop),
-    activityName: asString(row.activityName),
-    startDateTime: asString(row.startDateTime),
-    endDateTime: asString(row.endDateTime),
-    location: asString(row.location),
-    membersCount: asNumber(row.membersCount),
-    leadersCount: asNumber(row.leadersCount),
-    parentsCount: asNumber(row.parentsCount),
-    districtCode: asString(row.districtCode),
-  };
-}
-
 async function mapList<T>(
   result: Promise<ApiResult<unknown[]>>,
   mapper: (value: unknown) => T,
@@ -161,9 +140,6 @@ export const api = {
 
   listItems: (): Promise<ApiResult<Item[]>> =>
     mapList(callGet<unknown[]>('listItems'), mapItem),
-
-  listActivityNotices: (params: { year?: string; section?: string; nature?: string } = {}): Promise<ApiResult<ActivityNotice[]>> =>
-    mapList(callGet<unknown[]>('listActivityNotices', params as Record<string, string>), mapNotice),
 
   submitVenueRequest: (payload: UnknownRecord, meta: SubmissionMeta): Promise<ApiResult<SubmissionResult>> =>
     callPost('submitVenueRequest', { ...payload, ...meta }),
