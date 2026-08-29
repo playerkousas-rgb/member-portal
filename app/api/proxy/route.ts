@@ -20,7 +20,6 @@ const GET_ACTIONS = new Set([
   'listCourseLinks',
   'listVenues',
   'listItems',
-  'listActivityNotices',
 ]);
 
 const POST_FIELDS: Record<string, string[]> = {
@@ -149,19 +148,6 @@ function publicItem(value: unknown) {
     unit: text(row.unit), note: text(row.note),
   };
 }
-function publicNotice(value: unknown) {
-  const row = asRecord(value);
-  return {
-    id: text(row.id), refCode: text(row.refCode), submittedAt: text(row.submittedAt),
-    year: text(row.year), section: text(row.section), nature: text(row.nature),
-    troop: text(row.troop), activityName: text(row.activityName),
-    startDateTime: text(row.startDateTime), endDateTime: text(row.endDateTime),
-    location: text(row.location), membersCount: number(row.membersCount),
-    leadersCount: number(row.leadersCount), parentsCount: number(row.parentsCount),
-    districtCode: text(row.districtCode),
-    // 刻意不轉發 leaderName / leaderPhone / leaderEmail / note。
-  };
-}
 
 type StockSelection = { itemId: string; qty: number };
 
@@ -206,7 +192,6 @@ function sanitizeGet(action: string, data: unknown): unknown {
   }
   if (action === 'listVenues') return rows.map(publicVenue).filter((venue) => venue.venueId && venue.name);
   if (action === 'listItems') return rows.map(publicItem).filter((item) => item.itemId && item.name);
-  if (action === 'listActivityNotices') return rows.map(publicNotice).filter((notice) => notice.id && notice.activityName);
   return null;
 }
 
@@ -410,12 +395,6 @@ export async function GET(request: NextRequest) {
   if (!apiKey) return noStoreJson({ ok: false, error: '區會後台尚未完成連接。' }, 503);
 
   const allowedParams = new URLSearchParams();
-  if (action === 'listActivityNotices') {
-    ['year', 'section', 'nature'].forEach((key) => {
-      const value = searchParams.get(key);
-      if (value) allowedParams.set(key, value.slice(0, 80));
-    });
-  }
 
   try {
     const upstream = await fetchGet(district.apiBase, apiKey, action, allowedParams);

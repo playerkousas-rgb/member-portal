@@ -70,22 +70,3 @@ export interface CourseLink {
   contact: string;
   active: boolean;
 }
-
-/** 公開知會資料刻意不包含負責領袖姓名、電話及電郵。 */
-export interface ActivityNotice {
-  id: string;
-  refCode: string;
-  submittedAt: string;
-  year: string;
-  section: string;
-  nature: string;
-  troop: string;
-  activityName: string;
-  startDateTime: string;
-  endDateTime: string;
-  location: string;
-  membersCount: number;
-  leadersCount: number;
-  parentsCount: number;
-  districtCode: string;
-}
