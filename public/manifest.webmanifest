@@ -1,0 +1,21 @@
+{
+  "name": "童軍成員服務 — 通告通知",
+  "short_name": "童軍成員服務",
+  "description": "區為旅團及成員提供嘅自助服務入口，支援新通告推送通知。",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#02133e",
+  "background_color": "#02133e",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

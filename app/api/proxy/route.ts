@@ -20,6 +20,7 @@ const GET_ACTIONS = new Set([
   'listCourseLinks',
   'listVenues',
   'listItems',
+  'listAnnouncements',
 ]);
 
 const POST_FIELDS: Record<string, string[]> = {
@@ -148,6 +149,16 @@ function publicItem(value: unknown) {
     unit: text(row.unit), note: text(row.note),
   };
 }
+function publicAnnouncement(value: unknown) {
+  const row = asRecord(value);
+  const rawLevel = text(row.level);
+  const level = rawLevel === 'warning' || rawLevel === 'important' ? rawLevel : 'info';
+  return {
+    id: text(row.id), title: text(row.title), content: text(row.content),
+    date: text(row.date), pinned: row.pinned === true || text(row.pinned).toUpperCase() === 'TRUE',
+    level,
+  };
+}
 
 type StockSelection = { itemId: string; qty: number };
 
@@ -192,6 +203,10 @@ function sanitizeGet(action: string, data: unknown): unknown {
   }
   if (action === 'listVenues') return rows.map(publicVenue).filter((venue) => venue.venueId && venue.name);
   if (action === 'listItems') return rows.map(publicItem).filter((item) => item.itemId && item.name);
+  if (action === 'listAnnouncements') {
+    return rows.map(publicAnnouncement).filter((ann) => ann.id && ann.title)
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }
   return null;
 }
 
