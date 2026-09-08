@@ -64,7 +64,7 @@ export default function AnnouncementBanner() {
           padding: '8px 14px', marginBottom: 10,
           background: '#fef9c3', borderRadius: 8, fontSize: 13, color: '#92400e',
         }}>
-          <span>🔔 有新消息！瀏覽器通知已自動彈出。</span>
+          <span>📢 有新公告！已自動彈出瀏覽器通知。</span>
           <button
             onClick={() => setHasNew(false)}
             style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#92400e' }}

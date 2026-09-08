@@ -52,9 +52,6 @@ export default function HomePage() {
           showContact
           contactHref={withDistrict('/contact')}
         />
-        <div style={{ marginTop: 12 }}>
-          <PushSettings />
-        </div>
       </div>
 
       <section
@@ -73,15 +70,21 @@ export default function HomePage() {
             </p>
           </div>
         </div>
-        <a
-          className="btn"
-          href={ANNOUNCEMENT_URL}
-          target="_blank"
-          rel="noopener"
-          style={{ width: 'auto', padding: '11px 20px' }}
-        >
-          📢 瀏覽全港最新通告
-        </a>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+          <a
+            className="btn"
+            href={ANNOUNCEMENT_URL}
+            target="_blank"
+            rel="noopener"
+            style={{ width: 'auto', padding: '11px 20px' }}
+          >
+            📢 瀏覽全港最新通告
+          </a>
+          <PushSettings />
+          <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+            有新通告時用手機或電腦通知我
+          </span>
+        </div>
       </section>
 
       <div className="grid">
