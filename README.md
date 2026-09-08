@@ -31,9 +31,9 @@
 
 ### 通告通知（Web Push）
 
-首頁「查看通告」區內嘅「🔔 通告通知」按鈕，係**通告圖書館（scout-circulars）嘅成員入口**，兩者共用同一個 Supabase 訂閱表、同一對 VAPID key 及同一份 `public/subscription_catalog.json` 字典：
+首頁「查看通告」區內嘅「🔔 通告通知」按鈕，係**通告圖書館（scout-circulars）嘅成員入口**，兩者共用同一個 Supabase 訂閱表、同一對 VAPID key、同一個 `push-client.js` 協定及同一份 `public/subscription_catalog.json` 字典（v3.0.0，兩邊檔案必須一致）。設定面板嘅結構、分組及用語同圖書館睇齊（支部 → 服務／活動／比賽 → 訓練分組），只係配色換成成員系統嘅白底版本：
 
-- 成員先選**支部**，再揀活動／服務／比賽，訓練可以只揀自己有興趣嘅個別項目（分組摺疊 + 名稱搜尋），唔需要一次過訂閱「所有訓練」；
+- 成員先選**支部**，再揀活動／服務／比賽，訓練可以只揀自己有興趣嘅個別項目（綱要分組摺疊 + 名稱搜尋），唔需要一次過訂閱「所有訓練」；
 - 亦可一鍵「全選：所有新通告」（`all:new`）；
 - 匿名訂閱 — 只存瀏覽器 PushSubscription 及隨機 client token（server 只存 token 嘅 SHA-256），不收集任何個人資料；
 - 選項上限同 `/api/push-subscriptions` 一致（每個裝置最多 60 個項目；`all:new` 唔計）。
