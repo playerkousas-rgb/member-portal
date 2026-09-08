@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import AnnouncementBanner from '@/components/AnnouncementBanner';
+import PushSettings from '@/components/PushSettings';
 import SocialLinks from '@/components/SocialLinks';
 import { useDistrict } from '@/lib/useDistrict';
 
@@ -51,6 +52,9 @@ export default function HomePage() {
           showContact
           contactHref={withDistrict('/contact')}
         />
+        <div style={{ marginTop: 12 }}>
+          <PushSettings />
+        </div>
       </div>
 
       <section
