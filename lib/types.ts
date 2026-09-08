@@ -70,3 +70,13 @@ export interface CourseLink {
   contact: string;
   active: boolean;
 }
+
+export interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  date: string;
+  pinned: boolean;
+  /** 'info' | 'warning' | 'important' — 控制顯示顏色 */
+  level: 'info' | 'warning' | 'important';
+}

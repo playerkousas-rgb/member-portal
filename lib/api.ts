@@ -4,7 +4,7 @@
  */
 import { resolveDistrictCode } from './district';
 import type {
-  ApiResult, CourseLink, DistrictConfig, Item,
+  Announcement, ApiResult, CourseLink, DistrictConfig, Item,
   SubmissionMeta, SubmissionResult, SystemState, Venue,
 } from './types';
 
@@ -119,6 +119,21 @@ function mapCourse(value: unknown): CourseLink {
   };
 }
 
+function mapAnnouncement(value: unknown): Announcement {
+  const row = asRecord(value);
+  const rawLevel = asString(row.level);
+  const level: Announcement['level'] =
+    rawLevel === 'warning' || rawLevel === 'important' ? rawLevel : 'info';
+  return {
+    id: asString(row.id),
+    title: asString(row.title),
+    content: asString(row.content),
+    date: asString(row.date),
+    pinned: asBoolean(row.pinned),
+    level,
+  };
+}
+
 async function mapList<T>(
   result: Promise<ApiResult<unknown[]>>,
   mapper: (value: unknown) => T,
@@ -140,6 +155,9 @@ export const api = {
 
   listItems: (): Promise<ApiResult<Item[]>> =>
     mapList(callGet<unknown[]>('listItems'), mapItem),
+
+  listAnnouncements: (): Promise<ApiResult<Announcement[]>> =>
+    mapList(callGet<unknown[]>('listAnnouncements'), mapAnnouncement),
 
   submitVenueRequest: (payload: UnknownRecord, meta: SubmissionMeta): Promise<ApiResult<SubmissionResult>> =>
     callPost('submitVenueRequest', { ...payload, ...meta }),

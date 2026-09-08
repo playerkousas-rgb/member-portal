@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import AnnouncementBanner from '@/components/AnnouncementBanner';
 import SocialLinks from '@/components/SocialLinks';
 import { useDistrict } from '@/lib/useDistrict';
 
@@ -38,6 +39,8 @@ export default function HomePage() {
 
   return (
     <>
+      <AnnouncementBanner />
+
       <div className="hero">
         <h1>{district?.name} — 成員服務 👋</h1>
         <p>呢度係區為旅團及成員提供嘅自助服務入口。填表即可提交，無需登入；區會收到後會跟進處理。</p>
