@@ -116,6 +116,16 @@ function mapCourse(value: unknown): CourseLink {
     noticeUrl: asString(row.noticeUrl),
     contact: asString(row.contact),
     active: asBoolean(row.active, true),
+    fpsQrPayload: asString(row.fpsQrPayload),
+    fpsAmount: asString(row.fpsAmount),
+    fpsReference: asString(row.fpsReference),
+    fpsAccountName: asString(row.fpsAccountName),
+    fpsAccountNumber: asString(row.fpsAccountNumber),
+    leader: asString(row.leader),
+    uniform: asString(row.uniform),
+    remarks: asString(row.remarks),
+    signupText: asString(row.signupText),
+    feeNote: asString(row.feeNote),
   };
 }
 

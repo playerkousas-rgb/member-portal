@@ -69,6 +69,18 @@ export interface CourseLink {
   noticeUrl: string;
   contact: string;
   active: boolean;
+  // 每班收費 FPS QR（由管理系統訓練班管理生成；空字串 = 未生成）
+  fpsQrPayload?: string;   // HKICL Common QR 字串，直接畫 QR 即可掃
+  fpsAmount?: string;      // 固定銀碼（= 學費）
+  fpsReference?: string;   // 參考編號（付款 App 顯示）
+  fpsAccountName?: string; // 收款戶口名
+  fpsAccountNumber?: string; // FPS ID
+  // 通告全文欄（管理系統 v4.16.0 由區網通告 PDF 讀入；未填 = 空字串）
+  leader?: string;      // 班領導人
+  uniform?: string;     // 服裝
+  remarks?: string;     // 備註全文（可多行）
+  signupText?: string;  // 報名辦法（通告原文）
+  feeNote?: string;     // 費用全文（含轉數快戶口／付款說明）
 }
 
 export interface Announcement {

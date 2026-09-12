@@ -280,3 +280,17 @@ a.contact-primary-card:hover{border-color:#93c5fd;box-shadow:0 5px 14px rgba(0,5
   .quantity-control>span{grid-column:1/-1;text-align:right;font-size:10px;}
   .quantity-control input{width:64px;}
 }
+
+/* 訓練班收費 FPS QR（由管理系統生成） */
+.course-fps{display:grid;grid-template-columns:minmax(0,220px) 1fr;gap:16px;align-items:start;margin-bottom:14px;}
+.course-fps-qr{background:#fff;border:1px solid #dbe4ee;border-radius:12px;padding:8px;box-shadow:0 4px 14px rgba(15,23,42,.08);}
+.course-fps-info{display:flex;flex-direction:column;gap:6px;font-size:13px;color:#334155;}
+.course-fps-amt{font-size:24px;font-weight:800;color:var(--p);}
+.course-fps-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.course-fps-row span{color:var(--muted);font-size:12px;min-width:64px;}
+.course-fps-row b{word-break:break-word;}
+.course-fps-row button{background:#fff;border:1px solid var(--p);color:var(--p);border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;cursor:pointer;}
+.course-fps-help{font-size:12px;color:#475569;line-height:1.6;background:#fff;border-radius:8px;padding:8px 10px;border:1px solid #e2e8f0;}
+.course-fps-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.course-fps-msg{font-size:12px;color:#166534;font-weight:700;}
+@media (max-width:640px){.course-fps{grid-template-columns:1fr;}.course-fps-qr{max-width:260px;margin:0 auto;}}

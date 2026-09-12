@@ -131,17 +131,30 @@ note
 
 ### `submitCourseReg`
 
-主要欄位：
+主要欄位（v6.2.1 起送 **canonical 名**；區後台 v4.18.0 會自動補舊制別名一併轉發新舊制收表）：
 
 ```text
 courseId, memberType,
 nameZh, nameEn, gender, dob, phone, email,
-scoutDistrict, region, troop, scoutId, scoutPosition, extra,
-guardianConsent, guardianName, guardianRelation, guardianPhone, guardianEmail,
-leaderConsent, leaderName, leaderPosition, leaderEmail,
-payMethod, payerName, payAccount, needReceipt, note,
-receiptFileName, receiptMimeType, receiptDataUrl
+scoutDistrict, region, troop, scoutId, scoutPosition, reason,
+consentParent, gName, gRelation, gEmail, gPhone,
+consentLeader, leaderName, leaderTitle, leaderEmail,
+payMethod, payer, payAccount, needReceipt, remark,
+receiptFileName, receiptMimeType, receiptDataUrl, formDataUrl
 ```
+
+canonical 名 → 區後台自動補嘅舊制別名（成員端唔使送）：
+
+```text
+scoutPosition → scoutRank；reason → extra；
+consentParent → guardianConsent；gName/gRelation/gEmail/gPhone → guardianName/guardianRelation/guardianEmail/guardianPhone；
+consentLeader → leaderConsent；leaderTitle → leaderPosition；
+payer → payerName；remark → comment/note；
+formDataUrl → formShotDataUrl/formScreenshot/formUrl
+```
+
+課程對應：`courseId` 照舊。新制 hub 班嘅 `courseId` 即係公開課程ID（`publicCourseId`，`crs_xxx`）；
+區後台 `submitCourseReg_` 會自動改走 hub 公開 `addReg`（write-only、唔送 apiKey／fileId），成員端報名表唔使分別新舊制。
 
 主 `Code.gs` 必須：
 
@@ -184,3 +197,51 @@ receiptFileName, receiptMimeType, receiptDataUrl
 - `submitCourseReg_` 轉發 payload 已加入 `extra: b.extra || ''`；member 表單日後加入「附加資料」輸入框即可直通每班 Script，無需再改 proxy（`POST_FIELDS` 已有 `extra` 白名單）。
 
 成員系統唔應為此保留另一份 `Code.gs`；任何後台修正必須落喺管理系統唯一來源。
+
+
+## 訓練班收費 FPS QR（GS v4.3.0）
+
+`listCourseLinks` 每個 course 多咗 5 個公開欄位（管理系統「訓練班管理」按班生成；未生成 = 空字串）：
+
+| 欄位 | 用途 |
+|---|---|
+| `fpsQrPayload` | HKICL Common QR 字串（已計 CRC），前端直接 `<QRCodeCanvas value=…/>` |
+| `fpsAmount` | 固定銀碼（= 學費） |
+| `fpsReference` | 付款參考（預設課程編號） |
+| `fpsAccountName` / `fpsAccountNumber` | 收款戶口名 / FPS ID |
+
+proxy `publicCourse()` 已加入白名單；`components/CourseFpsQr.tsx` 喺 `/training` 繳費區同報名成功頁顯示。
+依賴：`qrcode.react`。
+
+## 通告全文欄（GS v4.16.0）
+
+`listCourseLinks` 每個 course 再多 5 個公開欄位（管理系統「📥 由通告網址讀取」由區網通告 PDF／帖文頁讀入；
+未填 = 空字串，舊班完全不受影響）：
+
+| 欄位 | 用途 |
+|---|---|
+| `leader` | 班領導人（通告「班領導人」段） |
+| `uniform` | 服裝（通告「服裝」段，如「整齊童軍制服」） |
+| `remarks` | 備註全文（通告「備註」段，可多行） |
+| `signupText` | 報名辦法（通告原文；成員照舊用本頁內置報名表） |
+| `feeNote` | 費用全文（含原價／資助／轉數快戶口等付款說明） |
+
+proxy `publicCourse()` 已加入白名單；`/training` 列表行顯示 班領導人／服裝，
+「📋 付款須知及備註（通告全文）」可展開 付款說明／備註／報名辦法；報名表所選班面板同時顯示。
+多班同掛照舊：每班各自指向自己嘅收表 Script（`submitCourseReg` 按 `courseId` 對號轉發）。
+
+## 報名欄位對齊（區後台 v4.18.0 × CourseHub 6.2.1）
+
+v4.18.0 起區後台 `submitCourseReg` 將報名表**全部欄位**轉發去訓練班後端，並自動補舊制別名
+（canonical 名同舊名兩套都送），新舊制收表都收得齊，唔再靜默丟失。成員端已對齊 canonical 名：
+
+- 報名表 `submit` 送晒：`scoutId`、`scoutPosition`、`reason`（附加資料）、
+  `consentParent`＋`gName/gRelation/gEmail/gPhone`、`consentLeader`＋`leaderName/leaderTitle/leaderEmail`、
+  `payMethod/payer/payAccount`、`receiptDataUrl`（入數紙，必填）、`formDataUrl`（已填妥表格截圖，選填）、
+  `needReceipt`、`remark`（備註）。
+- `consentParent`／`consentLeader`／`needReceipt` 嘅 truthy→`✔` 轉換、兩類截圖 `data:URL` 存 Drive，
+  全部由**訓練班後端**做；成員端唔自己上載 Drive。
+- `formDataUrl` 選填（紙本表格正本於上課時交回）；入數紙＋表格截圖兩張圖加埋限 4MB（body 限 4.5MB）。
+- 公開報名照舊只憑 `courseId`（hub 班＝公開課程ID `crs_xxx`），區後台自動改走 hub 公開 `addReg`
+  （write-only、唔送 apiKey／fileId），成員端唔使分別新舊制。
+- 對接合約詳見 CourseHub `docs/API.md`「addReg 報名欄位」及區後台 `docs/member-gs-handshake.md`。
