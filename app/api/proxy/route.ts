@@ -38,13 +38,15 @@ const POST_FIELDS: Record<string, string[]> = {
     'year', 'section', 'nature', 'troop', 'activityName', 'startDateTime', 'endDateTime', 'location',
     'membersCount', 'leadersCount', 'parentsCount', 'leaderName', 'leaderPhone', 'leaderEmail', 'note',
   ],
+  // v6.2.1 canonical 欄位名；區後台 v4.18.0 會自動補舊制別名（scoutRank／extra／
+  // guardian*／leaderPosition／payerName／note／formScreenshot…）轉發新舊制收表。
   submitCourseReg: [
     'courseId', 'memberType', 'nameZh', 'nameEn', 'gender', 'dob', 'phone', 'email',
-    'scoutDistrict', 'region', 'troop', 'scoutId', 'scoutPosition', 'extra',
-    'guardianConsent', 'guardianName', 'guardianRelation', 'guardianPhone', 'guardianEmail',
-    'leaderConsent', 'leaderName', 'leaderPosition', 'leaderEmail',
-    'payMethod', 'payerName', 'payAccount', 'needReceipt', 'note',
-    'receiptFileName', 'receiptMimeType', 'receiptDataUrl',
+    'scoutDistrict', 'region', 'troop', 'scoutId', 'scoutPosition', 'reason',
+    'consentParent', 'gName', 'gRelation', 'gEmail', 'gPhone',
+    'consentLeader', 'leaderName', 'leaderTitle', 'leaderEmail',
+    'payMethod', 'payer', 'payAccount', 'needReceipt', 'remark',
+    'receiptFileName', 'receiptMimeType', 'receiptDataUrl', 'formDataUrl',
   ],
 };
 
@@ -132,6 +134,12 @@ function publicCourse(value: unknown) {
     subsidyNote: text(row.subsidyNote), deadline: text(row.deadline), quota: number(row.quota),
     filled: number(row.filled), venue: text(row.venue), noticeUrl: publicUrl(row.noticeUrl),
     contact: text(row.contact), active: isActive(row.active),
+    // 每班收費 FPS QR（管理系統 v4.3.0 生成；未生成 = 空字串）
+    fpsQrPayload: text(row.fpsQrPayload), fpsAmount: text(row.fpsAmount), fpsReference: text(row.fpsReference),
+    fpsAccountName: text(row.fpsAccountName), fpsAccountNumber: text(row.fpsAccountNumber),
+    // 通告全文欄（管理系統 v4.16.0「由通告網址讀取」帶入；區通告格式項目）
+    leader: text(row.leader), uniform: text(row.uniform), remarks: text(row.remarks),
+    signupText: text(row.signupText), feeNote: text(row.feeNote),
   };
 }
 function publicVenue(value: unknown) {
@@ -213,6 +221,18 @@ function sanitizeGet(action: string, data: unknown): unknown {
 function getDistrict(code: string): DistrictInfo | undefined {
   return (DISTRICTS as Record<string, DistrictInfo>)[code];
 }
+/**
+ * 本機開發用：MEMBER_DEV_APIBASE 可將 upstream 指向本地 mock 後台
+ * （scout-district-portal `scripts/mock-gs-server.js`，搭配 MEMBER_SKW_APIKEY=dev），
+ * 方便部署前對齊測試。production 永遠用 DISTRICTS 嘅正式 apiBase。
+ */
+function apiBaseFor(district: DistrictInfo): string {
+  if (process.env.NODE_ENV !== 'production') {
+    const devBase = process.env.MEMBER_DEV_APIBASE || '';
+    if (devBase) return devBase;
+  }
+  return district.apiBase;
+}
 function getApiKey(code: string): string {
   return process.env[`MEMBER_${code}_APIKEY`] || '';
 }
@@ -283,7 +303,7 @@ function validateSubmission(action: string, body: JsonRecord): string {
     if (!text(body[field]).trim()) return '請填妥所有必填資料。';
   }
   for (const field of POST_FIELDS[action] || []) {
-    if (field !== 'receiptDataUrl' && text(body[field]).length > 5_000) return '部分欄位內容過長。';
+    if (field !== 'receiptDataUrl' && field !== 'formDataUrl' && text(body[field]).length > 5_000) return '部分欄位內容過長。';
   }
   if (text(body.email).length > 254 || text(body.name).length > 120 || text(body.nameZh).length > 120) {
     return '部分欄位內容過長。';
@@ -300,6 +320,13 @@ function validateSubmission(action: string, body: JsonRecord): string {
     const receipt = text(body.receiptDataUrl);
     if (!/^data:image\/(jpeg|jpg|png|webp);base64,/i.test(receipt)) return '入數紙格式不正確。';
     if (receipt.length > 3_800_000) return '入數紙檔案太大，請壓縮後再試。';
+    // 已填妥表格截圖（選填）；兩張圖加埋要容得返 Vercel 4.5MB body 上限。
+    const formShot = text(body.formDataUrl);
+    if (formShot) {
+      if (!/^data:image\/(jpeg|jpg|png|webp);base64,/i.test(formShot)) return '表格截圖格式不正確。';
+      if (formShot.length > 1_200_000) return '表格截圖檔案太大，請壓縮後再試。';
+      if (receipt.length + formShot.length > 4_000_000) return '兩張上傳圖片合共太大，請壓縮後再試。';
+    }
   }
   return '';
 }
@@ -412,7 +439,7 @@ export async function GET(request: NextRequest) {
   const allowedParams = new URLSearchParams();
 
   try {
-    const upstream = await fetchGet(district.apiBase, apiKey, action, allowedParams);
+    const upstream = await fetchGet(apiBaseFor(district), apiKey, action, allowedParams);
     if (!upstream.ok) return noStoreJson({ ok: false, error: upstream.error || '後台未能處理請求。' }, 502);
     return noStoreJson({ ok: true, data: sanitizeGet(action, upstream.data) });
   } catch (error) {
@@ -453,7 +480,7 @@ export async function POST(request: NextRequest) {
 
   try {
     // UI 顯示鎖定之外，再於 server 強制檢查，避免直接呼叫 POST 繞過。
-    const system = await fetchGet(district.apiBase, apiKey, 'getSystem');
+    const system = await fetchGet(apiBaseFor(district), apiKey, 'getSystem');
     if (!system.ok) return noStoreJson({ ok: false, error: '未能確認系統狀態，請稍後再試。' }, 503);
     const state = asRecord(system.data);
     if (state.locked === true || text(state.locked).toUpperCase() === 'TRUE') {
@@ -461,12 +488,12 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'submitStockBatchRequest') {
-      const batch = await submitStockBatch(district.apiBase, apiKey, body);
+      const batch = await submitStockBatch(apiBaseFor(district), apiKey, body);
       if (!batch.ok) return noStoreJson({ ok: false, error: batch.error || '物資申請提交失敗。' }, 502);
       return noStoreJson({ ok: true, data: batch.data });
     }
 
-    const upstream = await fetchPost(district.apiBase, apiKey, action, pickPayload(action, body));
+    const upstream = await fetchPost(apiBaseFor(district), apiKey, action, pickPayload(action, body));
     if (!upstream.ok) return noStoreJson({ ok: false, error: upstream.error || '提交失敗。' }, 502);
     const result = asRecord(upstream.data);
     return noStoreJson({ ok: true, data: { refCode: text(result.refCode) } });

@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { AntiSpamField, getSubmissionMeta } from '@/components/AntiSpamField';
+import CourseFpsQr from '@/components/CourseFpsQr';
 import { api } from '@/lib/api';
 import { SCOUT_DISTRICTS, SCOUT_REGIONS, SCOUT_SECTIONS } from '@/lib/scout';
 import type { CourseLink } from '@/lib/types';
@@ -59,30 +60,49 @@ export default function TrainingPage() {
   const [troop, setTroop] = useState('');
   const [scoutId, setScoutId] = useState('');
   const [scoutPosition, setScoutPosition] = useState('');
-  const [guardianConsent, setGuardianConsent] = useState(false);
-  const [guardianName, setGuardianName] = useState('');
-  const [guardianRelation, setGuardianRelation] = useState('');
-  const [guardianPhone, setGuardianPhone] = useState('');
-  const [guardianEmail, setGuardianEmail] = useState('');
-  const [leaderConsent, setLeaderConsent] = useState(false);
+  // 附加資料（有助訓練班取錄之原因）— CourseHub v6.2.1 canonical 欄位
+  const [reason, setReason] = useState('');
+  const [consentParent, setConsentParent] = useState(false);
+  const [gName, setGName] = useState('');
+  const [gRelation, setGRelation] = useState('');
+  const [gPhone, setGPhone] = useState('');
+  const [gEmail, setGEmail] = useState('');
+  const [consentLeader, setConsentLeader] = useState(false);
   const [leaderName, setLeaderName] = useState('');
-  const [leaderPosition, setLeaderPosition] = useState('');
+  const [leaderTitle, setLeaderTitle] = useState('');
   const [leaderEmail, setLeaderEmail] = useState('');
-  const [payerName, setPayerName] = useState('');
+  const [payer, setPayer] = useState('');
   const [payAccount, setPayAccount] = useState('');
   const [receiptFile, setReceiptFile] = useState<{ name: string; dataUrl: string; mimeType: string } | null>(null);
   const [receiptBusy, setReceiptBusy] = useState(false);
+  // 已填妥表格截圖（選填；正本上課時交回）
+  const [formShotFile, setFormShotFile] = useState<{ name: string; dataUrl: string } | null>(null);
+  const [formShotBusy, setFormShotBusy] = useState(false);
   const [needReceipt, setNeedReceipt] = useState('否');
-  const [note, setNote] = useState('');
+  const [remark, setRemark] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [doneRef, setDoneRef] = useState('');
   const [doneTitle, setDoneTitle] = useState('');
+  const [doneCourse, setDoneCourse] = useState<CourseLink | null>(null);
 
   useEffect(() => {
     api.listCourseLinks().then((result) => {
-      if (result.ok && result.data) setLinks(result.data.filter((course) => course.active));
-      else setLoadError(result.error || '未能載入訓練班。');
+      if (result.ok && result.data) {
+        const activeLinks = result.data.filter((course) => course.active);
+        setLinks(activeLinks);
+        // 直接報名連結（通告印嘅成員系統入口）：?courseId=crs_xxx 自動選好課程。
+        // 新制 hub 班嘅 courseId 即係公開課程ID（publicCourseId）。
+        const qid = (new URLSearchParams(window.location.search).get('courseId') || '').trim();
+        if (qid && activeLinks.some((course) => course.courseId === qid)) {
+          setCourseId(qid);
+          requestAnimationFrame(() => {
+            window.scrollTo({ top: document.getElementById('reg-form')?.offsetTop ?? 0, behavior: 'smooth' });
+          });
+        }
+      } else {
+        setLoadError(result.error || '未能載入訓練班。');
+      }
       setLoading(false);
     });
   }, []);
@@ -110,21 +130,23 @@ export default function TrainingPage() {
     }
     const meta = getSubmissionMeta(e.currentTarget, startedAt.current);
     setBusy(true);
+    // 送 CourseHub v6.2.1 canonical 欄位；區後台 v4.18.0 會自動對應舊制別名（scoutRank／extra／
+    // guardian*／leaderPosition／payerName／note 等）一併轉發，新舊制收表都收得齊。
     const r = await api.submitCourseReg({
       courseId, memberType, nameZh, nameEn, gender, dob, phone, email,
-      scoutDistrict, region, troop, scoutId, scoutPosition,
-      guardianConsent: guardianConsent ? 'TRUE' : '',
-      guardianName, guardianRelation, guardianPhone, guardianEmail,
-      leaderConsent: leaderConsent ? 'TRUE' : '',
-      leaderName, leaderPosition, leaderEmail,
-      payerName, payAccount, needReceipt, note,
+      scoutDistrict, region, troop, scoutId, scoutPosition, reason,
+      consentParent: consentParent ? 'TRUE' : '',
+      gName, gRelation, gPhone, gEmail,
+      consentLeader: consentLeader ? 'TRUE' : '',
+      leaderName, leaderTitle, leaderEmail,
+      payMethod: 'FPS', payer, payAccount, needReceipt, remark,
       receiptFileName: receiptFile.name,
       receiptMimeType: receiptFile.mimeType,
       receiptDataUrl: receiptFile.dataUrl,
-      payMethod: 'FPS',
+      ...(formShotFile ? { formDataUrl: formShotFile.dataUrl } : {}),
     }, meta);
     setBusy(false);
-    if (r.ok && r.data) { setDoneRef(r.data.refCode || '已提交'); setDoneTitle(selected?.title || ''); window.scrollTo(0, 0); }
+    if (r.ok && r.data) { setDoneRef(r.data.refCode || '已提交'); setDoneTitle(selected?.title || ''); setDoneCourse(selected || null); window.scrollTo(0, 0); }
     else setError(r.error || '提交失敗，請稍後再試。');
   }
 
@@ -146,6 +168,25 @@ export default function TrainingPage() {
     }
   }
 
+  // 已填妥表格截圖（選填）：同入數紙一樣壓縮，但限額收細，確保兩張圖加埋 body 唔超過 Vercel 4.5MB 上限。
+  async function onFormShotChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files && e.target.files[0];
+    setError('');
+    if (!file) return;
+    if (!/^image\//.test(file.type)) { setError('請上傳圖片檔案（JPG／PNG）。'); return; }
+    if (file.size > 15_000_000) { setError('原始圖片太大，請先壓縮至 15MB 以下。'); return; }
+    setFormShotBusy(true);
+    try {
+      const { dataUrl } = await processReceiptFile(file, 1400, 0.68);
+      if (dataUrl.length > 1_200_000) throw new Error('FORM_SHOT_TOO_LARGE');
+      setFormShotFile({ name: file.name, dataUrl });
+    } catch {
+      setError('表格截圖處理失敗，請改傳細一點嘅圖片再試。');
+    } finally {
+      setFormShotBusy(false);
+    }
+  }
+
   if (doneRef) {
     return (
       <div className="panel" style={{ textAlign: 'center', padding: 40 }}>
@@ -158,9 +199,17 @@ export default function TrainingPage() {
         <p style={{ color: '#64748b', fontSize: 13, marginTop: 10 }}>
           已收到你嘅入數紙，職員核對後會以電郵確認。
         </p>
+        {doneCourse?.fpsQrPayload && (
+          <div style={{ textAlign: 'left', marginTop: 16 }}>
+            <div style={{ fontSize: 12.5, color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '8px 10px', marginBottom: 8 }}>
+              仲未交費？可以即刻用以下 QR 補交，再把入數紙電郵／WhatsApp 俾課程負責人。
+            </div>
+            <CourseFpsQr course={doneCourse} />
+          </div>
+        )}
         <div style={{ marginTop: 20 }}>
           <Link href={withDistrict('/')} className="btn-ghost">返回首頁</Link>{' '}
-          <button className="btn-sm" onClick={() => { startedAt.current = Date.now(); setDoneRef(''); setCourseId(''); setReceiptFile(null); }}>再報名</button>
+          <button className="btn-sm" onClick={() => { startedAt.current = Date.now(); setDoneRef(''); setCourseId(''); setReceiptFile(null); setFormShotFile(null); setReason(''); setRemark(''); }}>再報名</button>
         </div>
       </div>
     );
@@ -192,6 +241,16 @@ export default function TrainingPage() {
                 <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
                   費用：HK${c.fee}{c.originalFee > c.fee ? `（原價 $${c.originalFee}）` : ''}{c.subsidyNote ? ` · ${c.subsidyNote}` : ''} · 截止：{c.deadline}
                 </div>
+                {c.leader && <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>👔 班領導人：{c.leader}</div>}
+                {c.uniform && <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>👕 服裝：{c.uniform}</div>}
+                {(c.feeNote || c.remarks || c.signupText) && (
+                  <details style={{ marginTop: 4, fontSize: 12, color: '#64748b' }}>
+                    <summary style={{ cursor: 'pointer', color: '#1565c0', fontWeight: 700 }}>📋 付款須知及備註（通告全文）</summary>
+                    {c.feeNote && <div style={{ whiteSpace: 'pre-line', marginTop: 4 }}>💰 {c.feeNote}</div>}
+                    {c.remarks && <div style={{ whiteSpace: 'pre-line', marginTop: 4 }}>📝 {c.remarks}</div>}
+                    {c.signupText && <div style={{ whiteSpace: 'pre-line', marginTop: 4 }}>🖊 {c.signupText}</div>}
+                  </details>
+                )}
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 6 }}>
                   {c.noticeUrl && <a href={c.noticeUrl} target="_blank" rel="noopener" style={{ color: '#1565c0', fontSize: 12, fontWeight: 700 }}>📄 詳情及通告 ↗</a>}
                   {c.contact && <span style={{ fontSize: 11, color: '#64748b' }}>📞 查詢：{c.contact}</span>}
@@ -238,6 +297,10 @@ export default function TrainingPage() {
             {selected.badgeName && <> · 🏅 {selected.badgeName}</>}
             <div style={{ whiteSpace: 'pre-line' }}>{selected.sessionsText}</div>
             <div>費用：HK${selected.fee}{selected.originalFee > selected.fee ? `（原價 $${selected.originalFee}）` : ''} · 截止：{selected.deadline}</div>
+            {selected.leader && <div style={{ marginTop: 2 }}>👔 班領導人：{selected.leader}</div>}
+            {selected.uniform && <div style={{ marginTop: 2 }}>👕 服裝：{selected.uniform}</div>}
+            {selected.feeNote && <div style={{ whiteSpace: 'pre-line', marginTop: 2 }}>💰 {selected.feeNote}</div>}
+            {selected.remarks && <div style={{ whiteSpace: 'pre-line', marginTop: 2 }}>📝 {selected.remarks}</div>}
           </div>
         )}
 
@@ -282,25 +345,29 @@ export default function TrainingPage() {
           <div className="field"><label>童軍職位</label>
             <input value={scoutPosition} onChange={(e) => setScoutPosition(e.target.value)} /></div>
         </div>
+        <div className="field" style={{ marginBottom: 14 }}>
+          <label>附加資料</label>
+          <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="有助訓練班取錄之原因（選填）" />
+        </div>
 
         <div className="panel" style={{ background: '#fefce8', border: '1px solid #fde68a', marginBottom: 14 }}>
           <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13 }}>
-            <input type="checkbox" checked={guardianConsent} onChange={(e) => setGuardianConsent(e.target.checked)} style={{ marginTop: 3 }} />
+            <input type="checkbox" checked={consentParent} onChange={(e) => setConsentParent(e.target.checked)} style={{ marginTop: 3 }} />
             <span>如申請人未滿 18 歲，請徵得家長／監護人同意，並填寫以下資料。</span>
           </label>
-          {guardianConsent && (
+          {consentParent && (
             <>
               <div className="frow" style={{ marginTop: 12 }}>
                 <div className="field"><label>監護人姓名</label>
-                  <input value={guardianName} onChange={(e) => setGuardianName(e.target.value)} /></div>
+                  <input value={gName} onChange={(e) => setGName(e.target.value)} /></div>
                 <div className="field"><label>與申請人關係</label>
-                  <input value={guardianRelation} onChange={(e) => setGuardianRelation(e.target.value)} placeholder="父／母／監護人" /></div>
+                  <input value={gRelation} onChange={(e) => setGRelation(e.target.value)} placeholder="父／母／監護人" /></div>
               </div>
               <div className="frow">
                 <div className="field"><label>監護人電話</label>
-                  <input value={guardianPhone} onChange={(e) => setGuardianPhone(e.target.value)} /></div>
+                  <input value={gPhone} onChange={(e) => setGPhone(e.target.value)} /></div>
                 <div className="field"><label>監護人電郵</label>
-                  <input type="email" value={guardianEmail} onChange={(e) => setGuardianEmail(e.target.value)} /></div>
+                  <input type="email" value={gEmail} onChange={(e) => setGEmail(e.target.value)} /></div>
               </div>
             </>
           )}
@@ -308,15 +375,15 @@ export default function TrainingPage() {
 
         <div className="panel" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', marginBottom: 14 }}>
           <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13 }}>
-            <input type="checkbox" checked={leaderConsent} onChange={(e) => setLeaderConsent(e.target.checked)} style={{ marginTop: 3 }} />
+            <input type="checkbox" checked={consentLeader} onChange={(e) => setConsentLeader(e.target.checked)} style={{ marginTop: 3 }} />
             <span>已獲所屬旅團領袖同意推薦報讀（如需要）。</span>
           </label>
-          {leaderConsent && (
+          {consentLeader && (
             <div className="frow3" style={{ marginTop: 12 }}>
               <div className="field"><label>領袖姓名</label>
                 <input value={leaderName} onChange={(e) => setLeaderName(e.target.value)} /></div>
               <div className="field"><label>領袖職位</label>
-                <input value={leaderPosition} onChange={(e) => setLeaderPosition(e.target.value)} /></div>
+                <input value={leaderTitle} onChange={(e) => setLeaderTitle(e.target.value)} /></div>
               <div className="field"><label>領袖電郵</label>
                 <input type="email" value={leaderEmail} onChange={(e) => setLeaderEmail(e.target.value)} /></div>
             </div>
@@ -325,12 +392,16 @@ export default function TrainingPage() {
 
         <div className="panel" style={{ background: '#f8fbff', border: '1px solid #dbeafe' }}>
           <h2>💳 繳費（轉數快）</h2>
-          <div style={{ fontSize: 12.5, color: '#334155', marginBottom: 12 }}>
-            請按課程通告提供嘅付款資料完成繳費，並上傳入數紙截圖。
-          </div>
+          {selected?.fpsQrPayload ? (
+            <CourseFpsQr course={selected} />
+          ) : (
+            <div style={{ fontSize: 12.5, color: '#334155', marginBottom: 12 }}>
+              請按課程通告提供嘅付款資料完成繳費，並上傳入數紙截圖。
+            </div>
+          )}
           <div className="frow">
             <div className="field"><label>付款人姓名</label>
-              <input value={payerName} onChange={(e) => setPayerName(e.target.value)} /></div>
+              <input value={payer} onChange={(e) => setPayer(e.target.value)} /></div>
             <div className="field"><label>付款帳戶（FPS 識別）</label>
               <input value={payAccount} onChange={(e) => setPayAccount(e.target.value)} placeholder="電話 / FPS ID" /></div>
           </div>
@@ -344,14 +415,24 @@ export default function TrainingPage() {
               </div>
             )}
           </div>
+          <div className="field"><label>已填妥表格截圖</label>
+            <input type="file" accept="image/*" onChange={onFormShotChange} />
+            <div className="helptext">如已填妥訓練班紙本表格，請上傳填妥表格嘅照片；正本於上課時交回（選填）。</div>
+            {formShotBusy && <div className="helptext">處理中…</div>}
+            {formShotFile && (
+              <div className="helptext" style={{ color: '#166534', fontWeight: 700 }}>
+                ✅ 已上傳：{formShotFile.name}
+              </div>
+            )}
+          </div>
           <div className="field"><label>需要收據？</label>
             <select value={needReceipt} onChange={(e) => setNeedReceipt(e.target.value)}>
               <option>否</option><option>是</option>
             </select></div>
         </div>
 
-        <div className="field"><label>其他資料</label>
-          <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="其他需要通知嘅資料…" /></div>
+        <div className="field"><label>備註</label>
+          <textarea value={remark} onChange={(e) => setRemark(e.target.value)} placeholder="其他需要通知嘅資料…" /></div>
 
         <AntiSpamField />
         <button className="btn" disabled={busy || loading || links.length === 0}>{busy ? '提交中…' : '提交報名'}</button>
