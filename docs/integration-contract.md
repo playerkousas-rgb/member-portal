@@ -70,6 +70,35 @@ note
 
 `agreeRules` 為必填（proxy 會強制檢查）；後台會記入 `VenueBookings`，供審計之用。`venueId` 必須是 `listVenues` 回傳嘅有效場地（後台會核對 `Venues` 表，唔存在會回「場地不存在」）；`Venues` 表未有 active 行時成員端會顯示「尚未開放」而唔可以提交。
 
+### 借場一條龍（成員端只負責提交；其餘全部喺後台 `gs/Code.gs`）
+
+```text
+成員提交 submitVenueRequest
+  → VenueBookings（pending）
+  → Teamup「申請中」子日曆建事件（失敗唔擋收表，warn 回傳）
+  → 職員電郵（Config NOTIFY_STAFF_EMAIL）
+
+職員一鍵批准 approveVenueBooking
+  → 通通鎖（Sciener）限時密碼（借用時段提前／延後 15 分鐘；PWD_MODE=phone4＝電話頭 4 位；撞碼自動重試）
+  → Teamup 事件搬去「確認借用」子日曆，notes 補密碼
+  → 申請人電郵收「已獲批准＋入場密碼」（申請人冇填電郵則跳過）
+
+拒絕／取消 rejectVenueBooking / setVenueBookingStatus
+  → Teamup 拒絕事件（選填子日曆）＋ 申請人電郵
+```
+
+降級設計：通通鎖未設定／建碼失敗 → 自動改用隨機密碼，批核照完成（warn 回傳管理端）；Teamup 未設定 → 照收表。聯調期間可喺 Config 設 `ttlockDisabled=TRUE` 跳過通通鎖。
+
+後台 Config（管理系統 Config 表）所需 key：
+
+| key | 用途 |
+|---|---|
+| `TEAMUP_API_KEY`／`TEAMUP_CALENDAR_KEY`／`TEAMUP_PENDING_SUBCAL_ID`／`TEAMUP_APPROVED_SUBCAL_ID` | Teamup 行事曆（SKW 生產已核實 ready） |
+| `SCIENER_CLIENT_ID`／`SCIENER_CLIENT_SECRET`／`SCIENER_USERNAME`／`SCIENER_PASSWORD`／`SCIENER_LOCK_ID`（或場地列 `scienerLockId`） | 通通鎖限時密碼；`SCIENER_API_BASE` 必須係 `https://api.sciener.com`（`open.sciener.com` 會自動改正） |
+| `NOTIFY_STAFF_EMAIL` | 新申請職員電郵通知 |
+
+電郵由部署 Apps Script 嘅 Google 帳戶經 `MailApp` 寄出（Apps Script 免費額度：消費帳戶每日 100 封），唔使額外 SMTP 設定。
+
 ### `submitStockRequest`（舊版單項相容）
 
 ```json

@@ -83,7 +83,7 @@ export default function VenuePage() {
           申請編號：<b style={{ color: '#003366' }}>{doneRef}</b>
         </p>
         <p style={{ color: '#64748b', fontSize: 13, marginTop: 10 }}>
-          提交並不等於批核完成；區會會喺管理系統跟進。如需查詢，請提供以上編號。
+          提交並不等於批核完成；區會會喺管理系統跟進。批核結果及入場密碼會寄到你所填嘅電郵；如需查詢，請提供以上編號。
         </p>
         <div style={{ marginTop: 20 }}>
           <Link href={withDistrict('/')} className="btn-ghost">返回首頁</Link>
@@ -162,6 +162,7 @@ export default function VenuePage() {
           <div className="field">
             <label>電郵</label>
             <input type="email" value={email} maxLength={254} onChange={(event) => setEmail(event.target.value)} />
+            <p className="helptext">批核結果及入場密碼會寄到這個電郵，建議填寫。</p>
           </div>
           <div className="field">
             <label>旅團</label>
