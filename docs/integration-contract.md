@@ -89,13 +89,21 @@ note
 
 降級設計：通通鎖未設定／建碼失敗 → 自動改用隨機密碼，批核照完成（warn 回傳管理端）；Teamup 未設定 → 照收表。聯調期間可喺 Config 設 `ttlockDisabled=TRUE` 跳過通通鎖。
 
-後台 Config（管理系統 Config 表）所需 key：
+後台 Config（管理系統 Config 表）所需 key 及來源：
 
-| key | 用途 |
-|---|---|
-| `TEAMUP_API_KEY`／`TEAMUP_CALENDAR_KEY`／`TEAMUP_PENDING_SUBCAL_ID`／`TEAMUP_APPROVED_SUBCAL_ID` | Teamup 行事曆（SKW 生產已核實 ready） |
-| `SCIENER_CLIENT_ID`／`SCIENER_CLIENT_SECRET`／`SCIENER_USERNAME`／`SCIENER_PASSWORD`／`SCIENER_LOCK_ID`（或場地列 `scienerLockId`） | 通通鎖限時密碼；`SCIENER_API_BASE` 必須係 `https://api.sciener.com`（`open.sciener.com` 會自動改正） |
-| `NOTIFY_STAFF_EMAIL` | 新申請職員電郵通知 |
+| key | 用途 | 去邊度搵 |
+|---|---|---|
+| `TEAMUP_API_KEY`／`TEAMUP_CALENDAR_KEY`／`TEAMUP_PENDING_SUBCAL_ID`／`TEAMUP_APPROVED_SUBCAL_ID` | Teamup 行事曆 | **已填好**（`getHealthCheck` 已核實 teamupReady／pendingSet／approvedSet 全 true），唔使再理 |
+| `SCIENER_CLIENT_ID`／`SCIENER_CLIENT_SECRET` | 通通鎖開發者應用 | TTLock 開放平台 **open.sciener.com** → 用 TTLock App 同一帳號登入 → 應用管理 → 建立應用（網頁 Web App）→ 攞 Client ID＋Secret。**最快捷徑：舊 `skw-booking` Vercel 專案 → Settings → Environment Variables 有齊 `TTLOCK_*` 五條，直接抄** |
+| `SCIENER_USERNAME`／`SCIENER_PASSWORD` | 管鎖帳號 | TTLock App（即 lock2.sciener.com）嘅登入 email＋密碼——當初設定區總部大門鎖嗰個帳戶（邊個同事管開把鎖就問邊個） |
+| `SCIENER_API_BASE` | API 區域 | 固定填 `https://api.sciener.com`（填咗 `open.sciener.com` Code.gs 會自動改正） |
+| `SCIENER_LOCK_ID` | 大門鎖 ID | 填好頭 4 條之後，管理系統借場審批頁（`/venue-regs`）有**「讀取鎖列表」掣**，一撳列出所有鎖＋Lock ID＋有冇網關；或跑 `node services/skw-booking/get-lock-id.js`。**必須揀「已連接網關：是」嗰把** |
+| `NOTIFY_STAFF_EMAIL` | 新申請職員電郵通知 | 區會電郵地址（可逗號分隔多個） |
+
+驗證方法（唔使將任何 key 貼出嚟）：
+
+1. 借場審批頁撳「讀取鎖列表」→ 列到鎖＝SCIENER_CLIENT_ID／SECRET／USERNAME／PASSWORD 四條正確；
+2. 終極測試：成員系統交一張真申請 → 一鍵批准 → `warn` 欄冇「TTLock 建碼失敗」＋申請人收到密碼電郵＝全線通。
 
 電郵由部署 Apps Script 嘅 Google 帳戶經 `MailApp` 寄出（Apps Script 免費額度：消費帳戶每日 100 封），唔使額外 SMTP 設定。
 
