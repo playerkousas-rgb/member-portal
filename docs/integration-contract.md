@@ -63,9 +63,12 @@ note
   "email": "...",
   "troop": "...",
   "position": "...",
-  "purpose": "..."
+  "purpose": "...",
+  "agreeRules": true
 }
 ```
+
+`agreeRules` 為必填（proxy 會強制檢查）；後台會記入 `VenueBookings`，供審計之用。`venueId` 必須是 `listVenues` 回傳嘅有效場地（後台會核對 `Venues` 表，唔存在會回「場地不存在」）；`Venues` 表未有 active 行時成員端會顯示「尚未開放」而唔可以提交。
 
 ### `submitStockRequest`（舊版單項相容）
 

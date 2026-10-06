@@ -25,7 +25,7 @@ const GET_ACTIONS = new Set([
 
 const POST_FIELDS: Record<string, string[]> = {
   submitVenueRequest: [
-    'venueId', 'startDate', 'endDate', 'name', 'phone', 'email', 'troop', 'position', 'purpose',
+    'venueId', 'startDate', 'endDate', 'name', 'phone', 'email', 'troop', 'position', 'purpose', 'agreeRules',
   ],
   submitStockRequest: [
     'itemId', 'qty', 'purpose', 'borrowDate', 'returnDate', 'name', 'phone', 'email', 'troop', 'position', 'agreeRules',
@@ -315,6 +315,10 @@ function validateSubmission(action: string, body: JsonRecord): string {
     if (!stockSelections(body.items).length) return '請選擇最少一項物資，並填寫正確數量。';
     if (text(body.returnDate) < text(body.borrowDate)) return '歸還日期不可早過借出日期。';
     if (body.agreeRules !== true) return '請先閱讀並同意借用規定。';
+  }
+  // 借場同樣必須同意守則（後台會將 agreeRules 記入 VenueBookings，方便審計）。
+  if (action === 'submitVenueRequest' && body.agreeRules !== true) {
+    return '請先閱讀並同意借用規定。';
   }
   if (action === 'submitCourseReg') {
     const receipt = text(body.receiptDataUrl);

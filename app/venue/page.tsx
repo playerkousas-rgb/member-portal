@@ -62,7 +62,7 @@ export default function VenuePage() {
     const meta = getSubmissionMeta(event.currentTarget, startedAt.current);
     setBusy(true);
     const result = await api.submitVenueRequest(
-      { venueId, startDate, endDate, name, phone, email, troop, position, purpose },
+      { venueId, startDate, endDate, name, phone, email, troop, position, purpose, agreeRules: agree },
       meta,
     );
     setBusy(false);
@@ -121,6 +121,10 @@ export default function VenuePage() {
             <div className="fixed-venue">載入區總部資料中…</div>
           ) : loadError ? (
             <div className="err" style={{ marginBottom: 0 }}>{loadError}</div>
+          ) : venues.length === 0 ? (
+            <div className="empty" style={{ padding: '22px 18px', textAlign: 'left' }}>
+              區會尚未開放場地借用，請稍後再試；如有疑問可先聯絡區會。
+            </div>
           ) : (
             <div className="fixed-venue">
               <span className="fixed-venue-icon">🏛</span>
