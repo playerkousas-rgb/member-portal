@@ -5,11 +5,17 @@ import { useEffect, useMemo, useState } from 'react';
  * 個人化「通告」通知設定（成員系統版）。
  *
  * 選單、用語及分組邏輯同通告圖書館（scout-circulars）睇齊：
- * 兩邊共用同一份 /subscription_catalog.json、同一個 Supabase 訂閱表
- * 及同一對 VAPID key，notify.py 推送時自然會推埋呢邊。
+ * 兩邊共用同一份 /subscription_catalog.json（v3.3.0）、同一個 Supabase 訂閱表、
+ * 同一對 VAPID key 及同一份 push-client.js（全域名稱同樣係 ScoutPushClient），
+ * notify.py 推送時自然會推埋呢邊。
+ *
+ * 全選剔項（2026-10-01 起，同圖書館一致）：
+ *   all:notices → 小工具以外嘅所有新通告（含公布／未分類），不限支部
+ *   all:tools   → 所有支部嘅小工具，不限支部
+ *   兩個都剔 == 舊版 all:new；all:new 保留相容，舊設定自動顯示成兩個都剔。
  *
  * 字典 kind：
- *   branch-topic 支部＋活動／服務／比賽（group = 服務／活動／比賽，match_topic 對應舊共用分類）
+ *   branch-topic 支部＋活動／服務／比賽／公布／小工具（group 對應分節，match_topic 對應舊共用分類）
  *   training     某個支部嘅「所有訓練」（領袖再分木章／非木章 section）
  *   course       該支部訓練綱要內嘅徽章／訓練班（subgroup = 綱要分組）
  *
@@ -42,9 +48,17 @@ interface PushStatus {
 
 /** 必須同 app/api/push-subscriptions/route.ts 嘅 MAX_TOPICS 及圖書館 api/push_common.py 保持一致 */
 const PUSH_MAX_TOPICS = 60;
-const PICK_ALL_ID = 'all:new';
-const PUSH_GENERAL_ORDER = ['服務', '活動', '比賽'];
+const PUSH_TOOLS_GROUP = '小工具';
+const PUSH_GENERAL_ORDER = ['服務', '活動', '比賽', '小工具', '公布'];
 const PUSH_LEADER_SECTION_ORDER = ['木章訓練班', '非木章訓練班'];
+
+/** 兩個獨立全選剔項（同圖書館 PUSH_MASTER_TOPICS 一致）；all:new 為舊版相容 ID */
+const PUSH_MASTER_TOPICS = [
+  { id: 'all:notices', label: '全選：所有通告', title: '小工具以外嘅所有新通告（包括公布及未分類），唔分支部' },
+  { id: 'all:tools', label: '全選：所有小工具', title: '所有支部嘅小工具；小工具只按支部細分，冇其他子分類' },
+] as const;
+const PUSH_LEGACY_ALL_ID = 'all:new';
+const PUSH_MASTER_IDS = new Set<string>([PUSH_LEGACY_ALL_ID, ...PUSH_MASTER_TOPICS.map((t) => t.id)]);
 
 type Tone = 'branch' | 'topic' | 'all';
 
@@ -64,13 +78,14 @@ const HELP: React.CSSProperties = { display: 'block', marginTop: 8, color: 'var(
 
 /** 一下即剔嘅選項（同圖書館 pick-chip 一樣：整個掣都係可撳範圍） */
 function Chip({
-  checked, onToggle, label, tone = 'topic', dashed,
+  checked, onToggle, label, tone = 'topic', dashed, title,
 }: {
   checked: boolean;
   onToggle: () => void;
   label: string;
   tone?: Tone;
   dashed?: boolean;
+  title?: string;
 }) {
   const c = TONES[tone];
   return (
@@ -78,6 +93,7 @@ function Chip({
       type="button"
       onClick={onToggle}
       aria-pressed={checked}
+      title={title}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 7, cursor: 'pointer',
         padding: '6px 11px 6px 8px', borderRadius: 999, fontSize: 12.5, lineHeight: 1.3,
@@ -120,6 +136,12 @@ function migrateTopics(topics: string[], branches: string[], allTopics: CatalogT
   return [...wanted];
 }
 
+/** 舊版單一「全選」（all:new）→ 顯示成兩個新全選都剔；下次儲存就會寫返新嘅一對 ID */
+function migrateLegacyAll(topics: string[]) {
+  if (!topics.includes(PUSH_LEGACY_ALL_ID)) return topics;
+  return [...new Set([...topics.filter((id) => id !== PUSH_LEGACY_ALL_ID), ...PUSH_MASTER_TOPICS.map((t) => t.id)])];
+}
+
 function subgroupsFor(topics: CatalogTopic[]) {
   const groups = new Map<string, CatalogTopic[]>();
   for (const topic of topics) {
@@ -156,25 +178,25 @@ export default function PushSettings() {
             const prefs = JSON.parse(raw);
             const branches: string[] = prefs.branches || [];
             setSelectedBranches(branches);
-            setSelectedTopics(migrateTopics(prefs.topics || [], branches, c.topics || []));
+            setSelectedTopics(migrateLegacyAll(migrateTopics(prefs.topics || [], branches, c.topics || [])));
           }
         } catch { /* ignore */ }
       })
       .catch(() => setCatalogFailed(true));
   }, []);
 
-  // Load push status（/push-client.js 提供匿名 Web Push 生命週期）
+  // Load push status（/push-client.js 提供匿名 Web Push 生命週期；全域名稱同圖書館一樣係 ScoutPushClient）
   useEffect(() => {
     const script = document.createElement('script');
     script.src = '/push-client.js';
     script.onload = () => {
-      if ((window as any).MemberPushClient) {
-        (window as any).MemberPushClient.status().then((s: PushStatus) => {
+      if ((window as any).ScoutPushClient) {
+        (window as any).ScoutPushClient.status().then((s: PushStatus) => {
           setPushStatus(s);
           if (s.preferences) {
             const branches = s.preferences.branches || [];
             setSelectedBranches(branches);
-            setSelectedTopics(migrateTopics(s.preferences.topics || [], branches, catalog?.topics || []));
+            setSelectedTopics(migrateLegacyAll(migrateTopics(s.preferences.topics || [], branches, catalog?.topics || [])));
           }
         });
       }
@@ -188,7 +210,7 @@ export default function PushSettings() {
     if (!('serviceWorker' in navigator)) return;
     const onMessage = (event: MessageEvent) => {
       if ((event.data as any)?.type !== 'scout-push-subscription-change') return;
-      const client = (window as any).MemberPushClient;
+      const client = (window as any).ScoutPushClient;
       try {
         const raw = localStorage.getItem('scl_push_preferences_v1');
         const prefs = raw ? JSON.parse(raw) : null;
@@ -214,12 +236,40 @@ export default function PushSettings() {
     return map;
   }, [catalog]);
 
-  const isAllNew = selectedTopics.includes(PICK_ALL_ID);
+  /** 揀咗邊啲全選掣（all:notices／all:tools） */
+  const masters = useMemo(
+    () => selectedTopics.filter((id) => PUSH_MASTER_IDS.has(id)),
+    [selectedTopics],
+  );
+  const bothMasters = masters.length >= PUSH_MASTER_TOPICS.length;
   const isActive = Boolean(pushStatus?.enabledLocally && pushStatus?.subscribed && pushStatus?.permission === 'granted');
-  const overLimit = selectedTopics.length > PUSH_MAX_TOPICS;
+
+  /** 已被全選包住嘅組別：剔「所有通告」就包住小工具以外嘅組別（含訓練）；剔「所有小工具」就包住小工具組 */
+  function groupCovered(group: string) {
+    if (group === PUSH_TOOLS_GROUP) return masters.includes('all:tools');
+    return masters.includes('all:notices');
+  }
+  const trainingCovered = masters.includes('all:notices');
+
+  /** 實際會儲存／上傳嘅項目：全選＋未被全選包住嘅逐項選擇（同圖書館 pushSelectionState 一致） */
+  const effectiveTopics = useMemo(
+    () => selectedTopics.filter((id) => {
+      if (PUSH_MASTER_IDS.has(id)) return true;
+      const topic = topicById.get(id);
+      return topic ? !groupCovered(topic.group || '') : true;
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedTopics, topicById, masters],
+  );
+  const extraCount = effectiveTopics.filter((id) => !PUSH_MASTER_IDS.has(id)).length;
+  const overLimit = effectiveTopics.length > PUSH_MAX_TOPICS;
+  /** 全選唔靠支部配對；淨係剔全選時補返全部支部（資料表要求 1..8 個支部） */
+  const effectiveBranches = masters.length && !selectedBranches.length
+    ? (catalog?.branches || []).map((b) => b.id)
+    : selectedBranches;
+  const invalid = overLimit || (!masters.length && (!selectedBranches.length || !extraCount));
 
   function toggleBranch(id: string) {
-    if (isAllNew) return;
     setOpenGroups({});
     setSelectedBranches((prev) => {
       const next = prev.includes(id) ? prev.filter((b) => b !== id) : [...prev, id];
@@ -236,11 +286,10 @@ export default function PushSettings() {
   }
 
   function toggleTopic(id: string) {
-    if (id === PICK_ALL_ID) {
-      setSelectedTopics((prev) => (prev.includes(PICK_ALL_ID) ? [] : [PICK_ALL_ID]));
-      return;
-    }
-    if (isAllNew) return;
+    setSelectedTopics((prev) => (prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]));
+  }
+
+  function toggleMaster(id: string) {
     setSelectedTopics((prev) => (prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]));
   }
 
@@ -257,14 +306,14 @@ export default function PushSettings() {
 
   function currentPreferences() {
     return {
-      branches: selectedBranches,
-      topics: selectedTopics,
+      branches: effectiveBranches,
+      topics: effectiveTopics,
       catalogVersion: String(catalog?.version || ''),
     };
   }
 
   async function handleSave() {
-    const client = (window as any).MemberPushClient;
+    const client = (window as any).ScoutPushClient;
     if (!client) { setStatusMsg('通知程式未能載入；選項仍不會上傳。'); setStatusTone('error'); return; }
     setBusy(true);
     try {
@@ -291,16 +340,23 @@ export default function PushSettings() {
   }
 
   async function handleEnable() {
-    const client = (window as any).MemberPushClient;
+    const client = (window as any).ScoutPushClient;
     if (!client) { setStatusMsg('通知程式未能載入。'); setStatusTone('error'); return; }
     setBusy(true);
     try {
       setStatusMsg('正在要求瀏覽器通知權限並儲存匿名訂閱…');
       setStatusTone('');
       const result = await client.enable(currentPreferences());
-      setStatusMsg(result.preferences.topics.includes(PICK_ALL_ID)
-        ? '已啟用全選：有任何新通告就通知，包括未分類通告。'
-        : '已啟用：符合任何一組支部及項目的新通告就會通知。');
+      const savedMasters = result.preferences.topics.filter((id: string) => PUSH_MASTER_IDS.has(id));
+      const hasNotices = savedMasters.includes('all:notices') || savedMasters.includes(PUSH_LEGACY_ALL_ID);
+      const hasTools = savedMasters.includes('all:tools') || savedMasters.includes(PUSH_LEGACY_ALL_ID);
+      setStatusMsg(hasNotices && hasTools
+        ? '已啟用全選：所有通告＋所有小工具（即係所有新消息，包括未分類）。'
+        : hasNotices
+          ? '已啟用全選：小工具以外嘅所有新通告都會通知（包括公布及未分類）。'
+          : hasTools
+            ? '已啟用全選：所有支部嘅小工具有新消息就會通知。'
+            : '已啟用：符合任何一組支部及項目的新通告就會通知。');
       setStatusTone('good');
       setPushStatus(await client.status());
     } catch (err: any) {
@@ -311,7 +367,7 @@ export default function PushSettings() {
 
   async function handleDisable() {
     if (!confirm('停止這部裝置的通告通知？本機選項會保留，日後可重新啟用。')) return;
-    const client = (window as any).MemberPushClient;
+    const client = (window as any).ScoutPushClient;
     if (!client) return;
     setBusy(true);
     try {
@@ -328,19 +384,28 @@ export default function PushSettings() {
   }
 
   const keyword = query.trim().toLowerCase();
-  const invalid = !selectedBranches.length || !selectedTopics.length || overLimit;
   const enableLabel = isActive ? '更新通知設定'
     : pushStatus?.permission === 'denied' ? '重新嘗試啟用通知' : '啟用通知';
 
-  /** 一個支部嘅關注項目（活動／服務／比賽 ＋ 訓練分組） */
+  /** 面板底部嘅已選摘要（同圖書館 updatePushCount 嘅用語一致） */
+  const summaryText = (() => {
+    const names = PUSH_MASTER_TOPICS.filter((t) => masters.includes(t.id)).map((t) => t.label.replace('全選：', ''));
+    if (names.length >= PUSH_MASTER_TOPICS.length) return '全選：所有通告 ＋ 所有小工具（即係所有新消息）';
+    if (names.length) return `全選：${names.join('＋')}${extraCount ? `・另加 ${effectiveBranches.length} 個支部・${extraCount} 個項目` : ''}`;
+    return `已選 ${selectedBranches.length} 個支部・${extraCount} 個項目${overLimit ? `（最多 ${PUSH_MAX_TOPICS} 個）` : ''}`;
+  })();
+
+  /** 一個支部嘅關注項目（活動／服務／比賽／公布／小工具 ＋ 訓練分組） */
   function renderBranchBlock(branchId: string) {
     const topics = catalog?.topics || [];
     const branchLabel = catalog?.branches.find((b) => b.id === branchId)?.label || branchId;
 
-    // 一般項目（活動／服務／比賽）：按 group 分節，同圖書館一致
+    // 一般項目（活動／服務／比賽／公布／小工具）：按 group 分節，同圖書館一致；
+    // 已被全選包住嘅組別收埋（但保留剔選，取消全選時原樣復原）。
     const generalSections = PUSH_GENERAL_ORDER
       .map((group) => ({
         group,
+        covered: groupCovered(group),
         list: topics.filter((t) => t.kind === 'branch-topic' && t.group === group && t.branches.includes(branchId)),
       }))
       .filter((section) => section.list.length > 0);
@@ -363,9 +428,15 @@ export default function PushSettings() {
       ? courses.filter((t) => t.label.toLowerCase().includes(keyword))
       : courses;
 
+    // 成個支部區塊嘅可見內容都俾全選包住時，收埋成區（同圖書館 appendPushBranchBlock 一致）
+    const hasVisibleGeneral = generalSections.some((s) => !s.covered);
+    const hasVisibleTraining = branchId !== '家長' && !trainingCovered && (trainingAll.length > 0 || courses.length > 0);
+    const blockHidden = bothMasters || !(hasVisibleGeneral || hasVisibleTraining);
+
     return (
       <div
         key={branchId}
+        hidden={blockHidden}
         style={{
           marginTop: 10, padding: '10px 12px', borderRadius: 12,
           border: '1px solid var(--line)', background: '#fbfdff',
@@ -384,7 +455,7 @@ export default function PushSettings() {
         </div>
 
         {generalSections.map((section) => (
-          <div key={section.group}>
+          <div key={section.group} hidden={section.covered}>
             <div style={SECTION_TITLE}>{section.group}</div>
             <div style={CHIP_ROW}>
               {section.list.map((t) => (
@@ -400,8 +471,8 @@ export default function PushSettings() {
           </div>
         ))}
 
-        {/* 家長只有活動及比賽，冇訓練項目 */}
-        {branchId === '家長' ? null : (
+        {/* 家長只有活動及比賽，冇訓練項目；訓練被「所有通告」全選包住時亦收埋 */}
+        {branchId === '家長' || trainingCovered ? null : (
           <>
             <div style={SECTION_TITLE}>訓練</div>
             {!trainingAll.length && !courses.length ? (
@@ -510,26 +581,26 @@ export default function PushSettings() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="通告通知設定"
-        title="設定個人化通告通知：先揀支部，再點選關注項目"
+        title="設定個人化通告通知：全選，或先揀支部再點選關注項目"
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 7, cursor: 'pointer',
           padding: '10px 16px', borderRadius: 999, fontSize: 13.5, fontWeight: 700,
           fontFamily: 'inherit', whiteSpace: 'nowrap',
-          border: `1.5px solid ${selectedTopics.length ? TONES.branch.softBorder : 'var(--line)'}`,
-          background: selectedTopics.length ? TONES.branch.soft : '#fff',
-          color: selectedTopics.length ? TONES.branch.on : 'var(--p)',
+          border: `1.5px solid ${effectiveTopics.length ? TONES.branch.softBorder : 'var(--line)'}`,
+          background: effectiveTopics.length ? TONES.branch.soft : '#fff',
+          color: effectiveTopics.length ? TONES.branch.on : 'var(--p)',
         }}
       >
         <span aria-hidden>{isActive ? '🔔' : '🔕'}</span>
         通告通知
-        {selectedTopics.length > 0 && (
+        {effectiveTopics.length > 0 && (
           <span
             style={{
               display: 'inline-block', minWidth: 18, padding: '0 5px', borderRadius: 999,
               background: isActive ? TONES.branch.on : 'rgba(0,51,102,.12)',
               color: isActive ? '#fff' : 'var(--p)', fontSize: 11, fontWeight: 700,
             }}
-          >{isAllNew ? '全部' : selectedTopics.length}</span>
+          >{bothMasters ? '全部' : effectiveTopics.length}</span>
         )}
       </button>
 
@@ -558,7 +629,7 @@ export default function PushSettings() {
               <div>
                 <h3 id="member-push-title" style={{ margin: 0, fontSize: 17, color: 'var(--p)' }}>🔔 個人化通告通知</h3>
                 <p style={{ margin: '5px 0 0', color: 'var(--muted)', fontSize: 12, lineHeight: 1.55 }}>
-                  通告圖書館有新通告時，推送到這部裝置 — 先揀支部，再點選關注項目。
+                  通告圖書館有新通告時，推送到這部裝置 — 全選，或先揀支部再點選關注項目。
                 </p>
               </div>
               <button
@@ -580,20 +651,25 @@ export default function PushSettings() {
               <strong>通知系統仍在測試中：</strong>推送可能延遲或遺漏，建議每天到通告圖書館瀏覽有沒有通告更新，不要只依賴通知。
             </div>
 
-            {/* 全選 */}
+            {/* 全選：通告／小工具各一個獨立剔項 */}
             <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
-              <div style={CHIP_ROW} role="group" aria-label="通知所有新通告">
-                <Chip
-                  checked={isAllNew}
-                  onToggle={() => toggleTopic(PICK_ALL_ID)}
-                  label="全選：所有新通告"
-                  tone="all"
-                  dashed
-                />
+              <div style={CHIP_ROW} role="group" aria-label="全選：通告／小工具">
+                {PUSH_MASTER_TOPICS.map((master) => (
+                  <Chip
+                    key={master.id}
+                    checked={masters.includes(master.id)}
+                    onToggle={() => toggleMaster(master.id)}
+                    label={master.label}
+                    tone="all"
+                    dashed
+                    title={master.title}
+                  />
+                ))}
               </div>
+              <small style={HELP}>兩個都剔＝所有新消息。全選唔分支部；小工具只按支部細分。</small>
             </div>
 
-            {!isAllNew && (
+            {!bothMasters && (
               <>
                 {/* 1 我的支部 */}
                 <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
@@ -621,7 +697,7 @@ export default function PushSettings() {
                       {catalogFailed ? '未能載入通告分類清單，請稍後再試。' : '正在載入通告分類清單…'}
                     </span>
                   )}
-                  <small style={HELP}>命中任何一組就通知；同一通告只計一次。</small>
+                  <small style={HELP}>命中任何一組就通知；同一通告只計一次。淨係剔全選可以唔揀支部。</small>
                 </div>
 
                 {/* 2 各支部關注項目 */}
@@ -656,13 +732,13 @@ export default function PushSettings() {
             )}
 
             {/* 已選項目總覽（成員系統加設：方便逐項覆核及移除） */}
-            {!isAllNew && selectedTopics.length > 0 && (
+            {effectiveTopics.length > 0 && (
               <details style={{ marginTop: 12 }}>
                 <summary style={{ cursor: 'pointer', fontSize: 12, fontWeight: 700, color: 'var(--p)' }}>
-                  已選 {selectedTopics.length} 個項目 — 查看／移除
+                  已選 {effectiveTopics.length} 個項目 — 查看／移除
                 </summary>
                 <div style={{ ...CHIP_ROW, marginTop: 8 }}>
-                  {selectedTopics.map((id) => (
+                  {effectiveTopics.map((id) => (
                     <button
                       key={id}
                       type="button"
@@ -671,7 +747,9 @@ export default function PushSettings() {
                       style={{
                         display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer',
                         padding: '4px 10px', borderRadius: 999, fontSize: 12, fontFamily: 'inherit',
-                        background: '#eef2f7', border: '1px solid #d5dde7', color: '#334155',
+                        background: PUSH_MASTER_IDS.has(id) ? TONES.all.soft : '#eef2f7',
+                        border: `1px solid ${PUSH_MASTER_IDS.has(id) ? TONES.all.softBorder : '#d5dde7'}`,
+                        color: '#334155',
                       }}
                     >{topicById.get(id)?.label || id} <span aria-hidden style={{ color: '#b91c1c', fontWeight: 900 }}>×</span></button>
                   ))}
@@ -711,9 +789,7 @@ export default function PushSettings() {
                   fontWeight: overLimit ? 700 : 400,
                 }}
               >
-                {isAllNew
-                  ? '全選：有新通告就通知（包括未分類）'
-                  : `已選 ${selectedBranches.length} 個支部・${selectedTopics.length} 個項目${overLimit ? `（最多 ${PUSH_MAX_TOPICS} 個）` : ''}`}
+                {summaryText}
               </span>
               <button
                 type="button"

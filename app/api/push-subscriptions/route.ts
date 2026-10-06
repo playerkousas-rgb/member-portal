@@ -20,6 +20,10 @@ const MAX_REQUEST_BYTES = 24 * 1024;
 const MAX_ENDPOINT_LENGTH = 2048;
 const MAX_CLIENT_TOKEN_LENGTH = 128;
 const MAX_TOPICS = 60;
+// Branch-agnostic "select all" switches. 2026-10-01 起圖書館將單一 all:new 拆做
+// 「所有通告」＋「所有小工具」兩個獨立剔項；all:new 保留相容，舊訂閱唔使重新設定。
+// 必須同 scout-circulars api/push_common.py 嘅 MASTER_TOPIC_IDS 保持一致。
+const MASTER_TOPIC_IDS = ['all:new', 'all:notices', 'all:tools'];
 
 const ALLOWED_PUSH_HOSTS = new Set([
   'fcm.googleapis.com',
@@ -123,27 +127,35 @@ function validatePreferences(body: Record<string, unknown>): { branches: string[
 
   const branches = rawBranches.filter((v) => typeof v === 'string' && catalog._branchIds.has(v)) as string[];
   const topics = rawTopics.filter((v) => typeof v === 'string' && catalog._topicIds.has(v)) as string[];
+  let effectiveBranches = branches;
 
   if (topics.includes('all:new')) {
     return { branches: catalog.branches.map((b) => b.id), topics: ['all:new'], catalogVersion: catalog.version };
   }
-  if (!branches.length) throw new Error('請至少選擇一個支部');
+  const masters = topics.filter((t) => MASTER_TOPIC_IDS.includes(t));
+  if (masters.length && !branches.length) {
+    // all:notices / all:tools 配對時唔睇 branch_ids，但資料表仍要求 1..8 個支部，
+    // 所以「淨係剔全選」照收，補返全部支部而唔係拒絕（同圖書館一致）。
+    effectiveBranches = catalog.branches.map((b) => b.id);
+  }
+  if (!effectiveBranches.length) throw new Error('請至少選擇一個支部');
   if (!topics.length) throw new Error('請至少選擇一個關注項目');
   if (topics.length > MAX_TOPICS) throw new Error(`關注項目過多（最多 ${MAX_TOPICS} 個）`);
 
   // Validate topic-branch compatibility
   const topicById = new Map(catalog.topics.map((t) => [t.id, t]));
-  const branchSet = new Set(branches);
+  const branchSet = new Set(effectiveBranches);
   for (const topicId of topics) {
+    if (MASTER_TOPIC_IDS.includes(topicId)) continue;
     const topic = topicById.get(topicId);
     if (!topic) continue;
     const scope = new Set(topic.branches || []);
-    if (!scope.has('*') && !branches.some((b) => scope.has(b))) {
+    if (!scope.has('*') && !effectiveBranches.some((b) => scope.has(b))) {
       throw new Error('所選項目不適用於已選支部');
     }
   }
 
-  return { branches, topics, catalogVersion: catalog.version };
+  return { branches: effectiveBranches, topics, catalogVersion: catalog.version };
 }
 
 // ── Supabase helper ────────────────────────────────────────────────
