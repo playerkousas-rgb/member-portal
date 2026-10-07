@@ -17,11 +17,16 @@ export const dynamic = 'force-dynamic';
 const GET_ACTIONS = new Set([
   'getConfig',
   'getSystem',
+  'getPublicInfo',
   'listCourseLinks',
   'listVenues',
   'listItems',
   'listAnnouncements',
+  'listActivityNotices',
 ]);
+
+/** GET 參數白名單：目前只有 listActivityNotices 嘅年份／支部／性質過濾會轉發去後台 */
+const GET_PARAM_WHITELIST = ['year', 'section', 'nature'];
 
 const POST_FIELDS: Record<string, string[]> = {
   submitVenueRequest: [
@@ -203,6 +208,22 @@ function sanitizeGet(action: string, data: unknown): unknown {
       lockMessage: text(row.lockMessage) || '系統維護中，請稍後再試。',
     };
   }
+  if (action === 'getPublicInfo') {
+    // 公開設定白名單：借用規則／旅團清單／Teamup 網址等動態文字嘅唯一來源係區系統 Config。
+    const row = asRecord(data);
+    const troops = Array.isArray(row.troopList) ? row.troopList : [];
+    return {
+      districtName: text(row.districtName).slice(0, 60),
+      districtCode: text(row.districtCode).slice(0, 12),
+      venueRules: text(row.venueRules).slice(0, 4000),
+      stockRules: text(row.stockRules).slice(0, 4000),
+      troopList: troops.filter((t) => typeof t === 'string').slice(0, 300).map((t) => text(t).slice(0, 40)),
+      cctvUrl: text(row.cctvUrl).slice(0, 300),
+      teamupBookingUrl: text(row.teamupBookingUrl).slice(0, 300),
+      fpsAccountName: text(row.fpsAccountName).slice(0, 80),
+      fpsAccountNumber: text(row.fpsAccountNumber).slice(0, 40),
+    };
+  }
   const rows = Array.isArray(data) ? data : [];
   if (action === 'listCourseLinks') {
     const today = new Date().toISOString().slice(0, 10);
@@ -211,6 +232,28 @@ function sanitizeGet(action: string, data: unknown): unknown {
   }
   if (action === 'listVenues') return rows.map(publicVenue).filter((venue) => venue.venueId && venue.name);
   if (action === 'listItems') return rows.map(publicItem).filter((item) => item.itemId && item.name);
+  if (action === 'listActivityNotices') {
+    // 只回傳公開欄位；leaderName／leaderPhone／leaderEmail／note 一律唔可以流出（合約規定）。
+    return rows.map((value) => {
+      const row = asRecord(value);
+      return {
+        id: text(row.id),
+        refCode: text(row.refCode),
+        year: text(row.year),
+        section: text(row.section || row.sections),
+        nature: text(row.nature),
+        troop: text(row.troop),
+        activityName: text(row.activityName),
+        startDateTime: text(row.startDateTime),
+        endDateTime: text(row.endDateTime),
+        location: text(row.location),
+        membersCount: number(row.membersCount),
+        leadersCount: number(row.leadersCount),
+        parentsCount: number(row.parentsCount),
+        submittedAt: text(row.submittedAt).slice(0, 30),
+      };
+    }).filter((notice) => notice.id && notice.troop && notice.activityName);
+  }
   if (action === 'listAnnouncements') {
     return rows.map(publicAnnouncement).filter((ann) => ann.id && ann.title)
       .sort((a, b) => b.date.localeCompare(a.date));
@@ -441,6 +484,10 @@ export async function GET(request: NextRequest) {
   if (!apiKey) return noStoreJson({ ok: false, error: '區會後台尚未完成連接。' }, 503);
 
   const allowedParams = new URLSearchParams();
+  for (const key of GET_PARAM_WHITELIST) {
+    const value = text(searchParams.get(key)).trim().slice(0, 40);
+    if (value) allowedParams.set(key, value);
+  }
 
   try {
     const upstream = await fetchGet(apiBaseFor(district), apiKey, action, allowedParams);

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { AntiSpamField, getSubmissionMeta } from '@/components/AntiSpamField';
 import TeamupCalendar from '@/components/TeamupCalendar';
 import { api } from '@/lib/api';
-import { VENUE_RULES } from '@/lib/publicContent';
+import { usePublicInfo } from '@/lib/usePublicInfo';
 import type { Venue } from '@/lib/types';
 import { useDistrict } from '@/lib/useDistrict';
 
@@ -12,6 +12,7 @@ const empty = (value: string) => !value.trim();
 
 export default function VenuePage() {
   const { withDistrict } = useDistrict();
+  const { venueRules, teamupBookingUrl } = usePublicInfo();
   const startedAt = useRef(Date.now());
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,11 +99,11 @@ export default function VenuePage() {
       <h1 className="page-title">🏛 借用區總部</h1>
       <p className="page-sub">先用 Teamup 查看區總部使用情況，再於同一頁填寫借用申請。</p>
 
-      <TeamupCalendar />
+      <TeamupCalendar url={teamupBookingUrl} />
 
       <section className="panel" style={{ borderLeft: '4px solid #1565c0' }}>
         <h2>📋 借用規定</h2>
-        <div style={{ fontSize: 13, whiteSpace: 'pre-line', lineHeight: 1.9 }}>{VENUE_RULES}</div>
+        <div style={{ fontSize: 13, whiteSpace: 'pre-line', lineHeight: 1.9 }}>{venueRules}</div>
         <div className="agree-rules">
           詳細守則（內建於本平台）：
           <Link href={withDistrict('/rules/venue')}>借場規則及程序</Link> ·

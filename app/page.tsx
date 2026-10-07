@@ -30,7 +30,7 @@ const SERVICES = [
   },
   {
     href: '/activity', icon: '📋', title: '旅團活動知會',
-    desc: '將旅團戶外活動資料交區會存檔；已提交嘅知會只會喺區管理系統列出。',
+    desc: '將旅團戶外活動資料交區會存檔；已遞交嘅知會可喺本頁查看記錄（只顯示公開欄位）。',
     tag: '公開提交', external: false,
   },
 ];

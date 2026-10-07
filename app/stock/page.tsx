@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { AntiSpamField, getSubmissionMeta } from '@/components/AntiSpamField';
 import { api } from '@/lib/api';
-import { STOCK_RULES, TROOP_LIST } from '@/lib/publicContent';
+import { usePublicInfo } from '@/lib/usePublicInfo';
 import type { Item, SubmissionResult } from '@/lib/types';
 import { useDistrict } from '@/lib/useDistrict';
 
@@ -11,6 +11,7 @@ type Quantities = Record<string, string>;
 
 export default function StockPage() {
   const { withDistrict } = useDistrict();
+  const { stockRules, troopList } = usePublicInfo();
   const startedAt = useRef(Date.now());
   const [items, setItems] = useState<Item[]>([]);
   const [quantities, setQuantities] = useState<Quantities>({});
@@ -159,7 +160,7 @@ export default function StockPage() {
 
       <section className="panel rules-compact">
         <h2>📋 借用規定</h2>
-        <div>{STOCK_RULES}</div>
+        <div>{stockRules}</div>
         <div className="agree-rules">
           <Link href={withDistrict('/rules/stock')}>查看完整借物資規定</Link>
         </div>
@@ -192,7 +193,7 @@ export default function StockPage() {
             <div className="field">
               <label>旅團</label>
               <input list="stock-troop-options" value={troop} maxLength={80} onChange={(event) => setTroop(event.target.value)} placeholder="請選擇或輸入旅團" />
-              <datalist id="stock-troop-options">{TROOP_LIST.map((item) => <option key={item} value={item} />)}</datalist>
+              <datalist id="stock-troop-options">{troopList.map((item) => <option key={item} value={item} />)}</datalist>
             </div>
           </div>
           <div className="frow">

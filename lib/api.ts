@@ -4,8 +4,8 @@
  */
 import { resolveDistrictCode } from './district';
 import type {
-  Announcement, ApiResult, CourseLink, DistrictConfig, Item,
-  SubmissionMeta, SubmissionResult, SystemState, Venue,
+  Announcement, ApiResult, ActivityNotice, CourseLink, DistrictConfig, Item,
+  PublicInfo, SubmissionMeta, SubmissionResult, SystemState, Venue,
 } from './types';
 
 type UnknownRecord = Record<string, unknown>;
@@ -168,6 +168,48 @@ export const api = {
 
   listAnnouncements: (): Promise<ApiResult<Announcement[]>> =>
     mapList(callGet<unknown[]>('listAnnouncements'), mapAnnouncement),
+
+  listActivityNotices: (params: { year?: string; section?: string; nature?: string } = {}): Promise<ApiResult<ActivityNotice[]>> =>
+    mapList(callGet<unknown[]>('listActivityNotices', params), (value) => {
+      const row = asRecord(value);
+      return {
+        id: asString(row.id),
+        refCode: asString(row.refCode),
+        year: asString(row.year),
+        section: asString(row.section || row.sections),
+        nature: asString(row.nature),
+        troop: asString(row.troop),
+        activityName: asString(row.activityName),
+        startDateTime: asString(row.startDateTime),
+        endDateTime: asString(row.endDateTime),
+        location: asString(row.location),
+        membersCount: asNumber(row.membersCount),
+        leadersCount: asNumber(row.leadersCount),
+        parentsCount: asNumber(row.parentsCount),
+        submittedAt: asString(row.submittedAt).slice(0, 30),
+      };
+    }),
+
+  getPublicInfo: async (): Promise<ApiResult<PublicInfo>> => {
+    const result = await callGet<unknown>('getPublicInfo');
+    if (!result.ok || !result.data) return { ok: false, error: result.error };
+    const row = asRecord(result.data);
+    const troops = Array.isArray(row.troopList) ? row.troopList : [];
+    return {
+      ok: true,
+      data: {
+        districtName: asString(row.districtName),
+        districtCode: asString(row.districtCode),
+        venueRules: asString(row.venueRules),
+        stockRules: asString(row.stockRules),
+        troopList: troops.filter((t) => typeof t === 'string').map((t) => asString(t)).filter(Boolean),
+        cctvUrl: asString(row.cctvUrl),
+        teamupBookingUrl: asString(row.teamupBookingUrl),
+        fpsAccountName: asString(row.fpsAccountName),
+        fpsAccountNumber: asString(row.fpsAccountNumber),
+      },
+    };
+  },
 
   submitVenueRequest: (payload: UnknownRecord, meta: SubmissionMeta): Promise<ApiResult<SubmissionResult>> =>
     callPost('submitVenueRequest', { ...payload, ...meta }),

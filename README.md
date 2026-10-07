@@ -18,7 +18,7 @@
 | `/stock` | `listItems`（主 Sheet 即時庫存） | `submitStockBatchRequest`（proxy；支援多項一次遞交） |
 | `/training` | `listCourseLinks` | `submitCourseReg` → 每班 Script `addReg` |
 | `/activity` | `listActivityNotices` | `submitActivityNotice` |
-| 全站 | `getConfig`、`getSystem` | 系統鎖定時 server 拒絕提交 |
+| 全站 | `getConfig`、`getSystem`、`getPublicInfo` | 系統鎖定時 server 拒絕提交；借用規則／旅團清單／Teamup 網址等動態文字以區系統 Config 為唯一來源（本地常識只作後備） |
 
 `/course` 只係舊網址，會轉到 `/training`；`/calendar` 係舊網址，會轉到 `/venue#availability`。
 

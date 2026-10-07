@@ -26,11 +26,14 @@
 ```text
 getConfig
 getSystem
+getPublicInfo
 listCourseLinks
 listVenues
 listItems
 listActivityNotices?year=&section=&nature=
 ```
+
+`getPublicInfo` 經 member proxy 後只回傳白名單欄位（`districtName`／`venueRules`／`stockRules`／`troopList`／`cctvUrl`／`teamupBookingUrl`／`fpsAccountName`／`fpsAccountNumber`）；借用規則、旅團清單同 Teamup 網址以區系統 Config 為唯一來源，成員端 hardcoded 內容只作後備。
 
 `listCourseLinks` 不可回傳：
 

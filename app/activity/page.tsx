@@ -1,9 +1,10 @@
 'use client';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { AntiSpamField, getSubmissionMeta } from '@/components/AntiSpamField';
 import { api } from '@/lib/api';
-import { TROOP_LIST } from '@/lib/publicContent';
+import { usePublicInfo } from '@/lib/usePublicInfo';
+import type { ActivityNotice } from '@/lib/types';
 import { useDistrict } from '@/lib/useDistrict';
 
 const SECTIONS = ['小童軍', '幼童軍', '童軍', '深資童軍', '樂行童軍'];
@@ -11,6 +12,7 @@ const NATURES = ['露營', '宿營', '日營', '遠足', '遠足營', '海上活
 
 export default function ActivityPage() {
   const { withDistrict } = useDistrict();
+  const { troopList } = usePublicInfo();
   const startedAt = useRef(Date.now());
 
   const [troop, setTroop] = useState('');
@@ -30,6 +32,28 @@ export default function ActivityPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [doneRef, setDoneRef] = useState('');
+
+  // 已遞交嘅知會（公開欄位）；提交成功（doneRef 改變）後自動重新載入
+  const [notices, setNotices] = useState<ActivityNotice[]>([]);
+  const [noticesLoading, setNoticesLoading] = useState(true);
+  const [noticesError, setNoticesError] = useState('');
+  const [yearFilter, setYearFilter] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    setNoticesLoading(true);
+    api.listActivityNotices().then((result) => {
+      if (cancelled) return;
+      if (result.ok && result.data) {
+        setNotices(result.data);
+        setNoticesError('');
+      } else {
+        setNoticesError(result.error || '未能載入已遞交嘅知會。');
+      }
+      setNoticesLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [doneRef]);
 
   function resetForm() {
     startedAt.current = Date.now();
@@ -96,7 +120,7 @@ export default function ActivityPage() {
           知會編號：<b style={{ color: '#003366' }}>{doneRef}</b>
         </p>
         <p style={{ color: '#64748b', fontSize: 13, marginTop: 10 }}>
-          呢個表單只係將活動知會區會存檔，已提交嘅記錄只會喺區管理系統列出，唔會喺度顯示。
+          呢個表單會將活動知會交區會存檔；已遞交嘅記錄會喺本頁下方列出（只顯示公開欄位）。
         </p>
         <p style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>
           如需更改，請聯絡區會並提供以上編號。
@@ -115,7 +139,7 @@ export default function ActivityPage() {
     <>
       <Link href={withDistrict('/')} className="backlink">← 返回服務首頁</Link>
       <h1 className="page-title">📋 旅團活動知會</h1>
-      <p className="page-sub">將旅團戶外活動資料交區會存檔。已提交嘅知會只會喺區管理系統列出，唔會喺度公開顯示。</p>
+      <p className="page-sub">將旅團戶外活動資料交區會存檔；已遞交嘅知會會喺本頁下方列出（只顯示公開欄位）。</p>
 
       <form className="panel" onSubmit={submit}>
         <h2>提交新知會</h2>
@@ -125,7 +149,7 @@ export default function ActivityPage() {
           <div className="field">
             <label>旅團 <span className="req">*</span></label>
             <input list="troop-options" value={troop} maxLength={80} onChange={(event) => setTroop(event.target.value)} placeholder="請選擇或輸入旅團" />
-            <datalist id="troop-options">{TROOP_LIST.map((item) => <option key={item} value={item} />)}</datalist>
+            <datalist id="troop-options">{troopList.map((item) => <option key={item} value={item} />)}</datalist>
           </div>
           <div className="field">
             <label>活動名稱 <span className="req">*</span></label>
@@ -203,6 +227,51 @@ export default function ActivityPage() {
         <AntiSpamField />
         <button className="btn" disabled={busy}>{busy ? '提交中…' : '提交知會'}</button>
       </form>
+
+      <section className="panel">
+        <h2>已遞交嘅活動知會</h2>
+        <p className="helptext" style={{ marginBottom: 10 }}>
+          只顯示公開欄位（旅團、活動、時段、地點及人數）；負責領袖姓名、電話、電郵及備註唔會公開。
+        </p>
+        {(() => {
+          const years = [...new Set(notices.map((n) => n.year).filter(Boolean))].sort().reverse();
+          const filtered = yearFilter ? notices.filter((n) => n.year === yearFilter) : notices;
+          if (noticesLoading) return <div className="empty">正在載入已遞交嘅知會…</div>;
+          if (noticesError) return <div className="err" style={{ marginBottom: 0 }}>{noticesError}</div>;
+          if (!notices.length) return <div className="empty">未有已遞交嘅活動知會。</div>;
+          return (
+            <>
+              {years.length > 1 && (
+                <div className="field" style={{ maxWidth: 200 }}>
+                  <label>年份</label>
+                  <select value={yearFilter} onChange={(event) => setYearFilter(event.target.value)}>
+                    <option value="">全部年份</option>
+                    {years.map((y) => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
+              )}
+              {filtered.length === 0
+                ? <div className="empty">這個年份未有知會記錄。</div>
+                : filtered.map((n) => (
+                  <div key={n.id} style={{ padding: '10px 2px', borderBottom: '1px dashed var(--line)' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'baseline' }}>
+                      <strong style={{ color: 'var(--p)' }}>{n.troop}．{n.activityName}</strong>
+                      <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+                        {n.year}・{n.section}{n.nature ? `・${n.nature}` : ''}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 12.5, color: 'var(--slate)', marginTop: 4, lineHeight: 1.7 }}>
+                      {n.startDateTime.replace('T', ' ')} → {n.endDateTime.replace('T', ' ')}｜📍 {n.location}
+                      <br />
+                      成員 {n.membersCount}・領袖 {n.leadersCount}・家長 {n.parentsCount}
+                      {n.refCode ? `｜編號 ${n.refCode}` : ''}
+                    </div>
+                  </div>
+                ))}
+            </>
+          );
+        })()}
+      </section>
     </>
   );
 }
