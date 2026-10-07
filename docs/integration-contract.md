@@ -134,6 +134,15 @@ note
 
 套用方法（scout-district-portal 一側）：`git apply docs/backend-venue-passcode.patch`（或照 patch 內容手動改 `gs/Code.gs` 三處：`createTtlockPasscode_` 改候選制、新增四個 helper、`submitVenueRequest_` 加兩段上限檢查）→ 開 Apps Script 編輯器貼上新 `Code.gs` → **部署 → 管理部署 → 編輯 → 新版本**。⚠️ 改 code 必須重新部署 Web App 先生效（改 Config 則唔使）。
 
+### 界線：成員系統唔會、亦唔使連通通鎖
+
+通通鎖（Sciener）純粹係**區系統（Apps Script）↔ 鎖**之間嘅事：所有 `SCIENER_*`／`ttlock*` key 只存喺主 Sheet Config 分頁，成員系統（member-portal）由頭到尾唔掂鎖、唔存任何鎖 key。成員唯一接觸到密碼嘅途徑係批核後嘅電郵。所以開通可以分兩步走：
+
+- **Phase 1（唔使任何 key，即刻開通）**：merge member-portal PR → `Venues` 表加場地 → 成員即刻可以網上交表（收表上線）。審批暫時用「**✅ 確認（唔設鎖）**」（`confirmVenueBooking`：只改狀態＋Teamup，**唔會寄密碼電郵**），門鎖密碼照舊由職員人手處理——同多年做法一樣。
+- **Phase 2（執齊 key 先做）**：Config 貼 `SCIENER_*` 五條＋套用雙位制補丁＋Apps Script 出新版本 →「一鍵批准」先會自動建碼＋寄密碼電郵。
+
+⚠️ **Phase 1 期間千祈唔好撳「一鍵批准」**：SCIENER 未設定時，佢會 fallback 隨機密碼並**照樣寄電郵俾申請人——嗰個密碼係冇寫入鎖嘅，開唔到門**。（一鍵批准需 DDC 或以上；「確認（唔設鎖）」一般有 venue 權限就撳得到。）
+
 ### `submitStockRequest`（舊版單項相容）
 
 ```json
