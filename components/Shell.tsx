@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import DistrictPicker from '@/components/DistrictPicker';
+import ReportLink from '@/components/ReportLink';
 import SocialLinks from '@/components/SocialLinks';
 import { api } from '@/lib/api';
 import {
@@ -74,7 +75,10 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         <div className="top">
           <div>
             <Link href={withDistrict('/')} className="brand" style={{ color: '#fff' }}>
-              {config?.logoText || '🧭'} {title} — 成員服務
+              <span className="brand-logo" aria-hidden="true">
+                <img src="/icons/logo-256.png" alt="" width={26} height={26} />
+              </span>
+              {title} — 成員服務
             </Link>
             <div className="sub">
               {MULTI_DISTRICT_MODE
@@ -139,6 +143,8 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           <Link href={withDistrict('/guide')}>使用指南</Link>
           <span>·</span>
           <Link href={withDistrict('/contact')}>聯絡及查詢</Link>
+          <span>·</span>
+          <ReportLink className="footer-report">問題回報</ReportLink>
         </div>
       </footer>
     </>

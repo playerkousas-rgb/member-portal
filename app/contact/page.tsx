@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import ReportLink from '@/components/ReportLink';
 import { useDistrict } from '@/lib/useDistrict';
 
 const SOURCE_URL = 'https://www.skwscout.org.hk/%e7%ad%b2%e7%ae%95%e7%81%a3%e5%8d%80%e6%88%90%e7%ab%8b%e5%8f%8a%e7%99%bc%e5%b1%95%e5%8f%b2/%e8%81%af%e7%b5%a1%e5%8f%8a%e6%9f%a5%e8%a9%a2/';
@@ -39,6 +40,10 @@ export default function ContactPage() {
           <span className="contact-icon">✉</span>
           <span><small>一般查詢</small><strong>info@skwscout.org.hk</strong></span>
         </a>
+        <ReportLink className="contact-primary-card" title="問題回報 · 意見回饋">
+          <span className="contact-icon">🐛</span>
+          <span><small>網上表格 · 可匿名</small><strong>問題回報／意見回饋</strong></span>
+        </ReportLink>
       </section>
 
       <section className="panel">

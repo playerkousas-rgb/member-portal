@@ -328,7 +328,9 @@ v4.18.0 起區後台 `submitCourseReg` 將報名表**全部欄位**轉發去訓�
 ## Scout Admin 統一回報（成員端 ↔ scout-admin，唔經主 Code.gs）
 
 `app/layout.tsx` 載入 `https://scout-admin-blue.vercel.app/widget.js`（`data-app="成員系統"`），
-成員喺任何頁面右下角都可以遞交「問題回報／意見回饋」：
+成員可以隨時遞交「問題回報／意見回饋」。入口放喺「查詢」隔離（`components/ReportLink.tsx`
+打開 widget modal；widget 自帶嘅右下角浮動掣已用 CSS 隱藏）：首頁社交列、頁尾連結、
+聯絡及查詢頁嘅查詢卡隔離各有一個掣：
 
 - **唔關主 Code.gs 事**：payload 直接送 Scout Admin 自己嘅 Apps Script 接收端（統一回報格式 v1），
   入區會既有嘅問題回報／意見回饋工作表，`來源APP` 欄會存「成員系統」；

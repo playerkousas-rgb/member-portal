@@ -27,11 +27,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Shell>{children}</Shell>
         </Suspense>
         {/* Scout Admin 統一回報系統（scout-admin repo）：一行 widget，data-app 認來源。
-            資料直接送去區會 Apps Script 接收端，唔經本站後端、唔使 API key、可以匿名。 */}
+            資料直接送去區會 Apps Script 接收端，唔經本站後端、唔使 API key、可以匿名。
+            widget 自帶嘅右下角浮動掣已用 CSS 隱藏；入口喺「查詢」隔邊
+            （首頁社交列 / 頁尾 / 聯絡及查詢頁），由 components/ReportLink.tsx 打開 modal，
+            所以用 afterInteractive 早啲載入，等成員一㩒就有得回報。 */}
         <Script
           src="https://scout-admin-blue.vercel.app/widget.js"
           data-app="成員系統"
-          strategy="lazyOnload"
+          strategy="afterInteractive"
         />
         <script
           dangerouslySetInnerHTML={{
