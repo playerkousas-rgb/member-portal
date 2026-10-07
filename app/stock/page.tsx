@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { AntiSpamField, getSubmissionMeta } from '@/components/AntiSpamField';
 import { api } from '@/lib/api';
 import { usePublicInfo } from '@/lib/usePublicInfo';
+import { confirmSubmit, useFormGuard } from '@/lib/useFormGuard';
 import type { Item, SubmissionResult } from '@/lib/types';
 import { useDistrict } from '@/lib/useDistrict';
 
@@ -13,6 +14,7 @@ export default function StockPage() {
   const { withDistrict } = useDistrict();
   const { stockRules, troopList } = usePublicInfo();
   const startedAt = useRef(Date.now());
+  const submitLock = useRef(false);
   const [items, setItems] = useState<Item[]>([]);
   const [quantities, setQuantities] = useState<Quantities>({});
   const [loading, setLoading] = useState(true);
@@ -57,6 +59,30 @@ export default function StockPage() {
 
   const totalQty = selectedItems.reduce((sum, item) => sum + item.qty, 0);
 
+  // 防呆：草稿自動保存＋離開提示（詳見 lib/useFormGuard.ts）
+  const snapshot = useMemo(
+    () => ({ quantities, purpose, borrowDate, returnDate, name, phone, email, troop, position, agree }),
+    [quantities, purpose, borrowDate, returnDate, name, phone, email, troop, position, agree],
+  );
+  const guard = useFormGuard('mp:draft:stock', snapshot, (saved) => {
+    if (saved.quantities && typeof saved.quantities === 'object') {
+      const restored: Quantities = {};
+      for (const [itemId, qty] of Object.entries(saved.quantities)) {
+        if (typeof qty === 'string' && qty !== '') restored[itemId] = qty;
+      }
+      setQuantities(restored);
+    }
+    if (typeof saved.purpose === 'string') setPurpose(saved.purpose);
+    if (typeof saved.borrowDate === 'string') setBorrowDate(saved.borrowDate);
+    if (typeof saved.returnDate === 'string') setReturnDate(saved.returnDate);
+    if (typeof saved.name === 'string') setName(saved.name);
+    if (typeof saved.phone === 'string') setPhone(saved.phone);
+    if (typeof saved.email === 'string') setEmail(saved.email);
+    if (typeof saved.troop === 'string') setTroop(saved.troop);
+    if (typeof saved.position === 'string') setPosition(saved.position);
+    setAgree(saved.agree === true);
+  }, { active: !done });
+
   function setItemQty(item: Item, rawValue: string) {
     const normalized = rawValue === '' ? '' : String(Math.max(0, Math.min(item.availableQty, Number(rawValue) || 0)));
     setQuantities((current) => ({ ...current, [item.itemId]: normalized }));
@@ -64,6 +90,7 @@ export default function StockPage() {
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submitLock.current) return;
     setError('');
 
     if (!name.trim() || !phone.trim() || !borrowDate || !returnDate) {
@@ -90,8 +117,12 @@ export default function StockPage() {
       setError('請先閱讀並同意借用規定。');
       return;
     }
+    if (!confirmSubmit(
+      `確認遞交 ${selectedItems.length} 項物資申請（合共 ${totalQty} 件）？\n\n借出：${borrowDate} → 歸還：${returnDate}\n申請人：${name}（${phone}）\n\n提交後區會會喺管理系統跟進批核。`,
+    )) return;
 
     const meta = getSubmissionMeta(event.currentTarget, startedAt.current);
+    submitLock.current = true;
     setBusy(true);
     const result = await api.submitStockBatchRequest({
       items: selectedItems,
@@ -105,9 +136,11 @@ export default function StockPage() {
       position,
       agreeRules: true,
     }, meta);
+    submitLock.current = false;
     setBusy(false);
 
     if (result.ok && result.data) {
+      guard.clearDraft();
       setDone(result.data);
       window.scrollTo(0, 0);
     } else {
@@ -167,6 +200,15 @@ export default function StockPage() {
       </section>
 
       <form onSubmit={submit}>
+        {guard.pending && (
+          <div className="draft-banner" role="status">
+            <span>♻️ 發現上次未提交嘅草稿（{new Date(guard.pending.t).toLocaleString('zh-HK')}），包括已填嘅物資數量。</span>
+            <span className="draft-actions">
+              <button type="button" className="draft-restore" onClick={guard.restore}>回復草稿</button>
+              <button type="button" className="draft-discard" onClick={guard.discard}>放棄</button>
+            </span>
+          </div>
+        )}
         {error && <div className="err form-error" role="alert">{error}</div>}
 
         <section className="panel form-step">

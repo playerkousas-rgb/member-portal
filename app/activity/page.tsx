@@ -1,9 +1,10 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { AntiSpamField, getSubmissionMeta } from '@/components/AntiSpamField';
 import { api } from '@/lib/api';
 import { usePublicInfo } from '@/lib/usePublicInfo';
+import { confirmSubmit, useFormGuard } from '@/lib/useFormGuard';
 import type { ActivityNotice } from '@/lib/types';
 import { useDistrict } from '@/lib/useDistrict';
 
@@ -14,6 +15,7 @@ export default function ActivityPage() {
   const { withDistrict } = useDistrict();
   const { troopList } = usePublicInfo();
   const startedAt = useRef(Date.now());
+  const submitLock = useRef(false);
 
   const [troop, setTroop] = useState('');
   const [activityName, setActivityName] = useState('');
@@ -55,6 +57,32 @@ export default function ActivityPage() {
     return () => { cancelled = true; };
   }, [doneRef]);
 
+  // 防呆：草稿自動保存＋離開提示（詳見 lib/useFormGuard.ts）
+  const snapshot = useMemo(
+    () => ({
+      troop, activityName, section, nature, startDateTime, endDateTime, location,
+      membersCount, leadersCount, parentsCount, leaderName, leaderPhone, leaderEmail, note,
+    }),
+    [troop, activityName, section, nature, startDateTime, endDateTime, location,
+      membersCount, leadersCount, parentsCount, leaderName, leaderPhone, leaderEmail, note],
+  );
+  const guard = useFormGuard('mp:draft:activity', snapshot, (saved) => {
+    if (typeof saved.troop === 'string') setTroop(saved.troop);
+    if (typeof saved.activityName === 'string') setActivityName(saved.activityName);
+    if (typeof saved.section === 'string') setSection(saved.section);
+    if (typeof saved.nature === 'string') setNature(saved.nature);
+    if (typeof saved.startDateTime === 'string') setStartDateTime(saved.startDateTime);
+    if (typeof saved.endDateTime === 'string') setEndDateTime(saved.endDateTime);
+    if (typeof saved.location === 'string') setLocation(saved.location);
+    if (typeof saved.membersCount === 'string') setMembersCount(saved.membersCount);
+    if (typeof saved.leadersCount === 'string') setLeadersCount(saved.leadersCount);
+    if (typeof saved.parentsCount === 'string') setParentsCount(saved.parentsCount);
+    if (typeof saved.leaderName === 'string') setLeaderName(saved.leaderName);
+    if (typeof saved.leaderPhone === 'string') setLeaderPhone(saved.leaderPhone);
+    if (typeof saved.leaderEmail === 'string') setLeaderEmail(saved.leaderEmail);
+    if (typeof saved.note === 'string') setNote(saved.note);
+  }, { active: !doneRef });
+
   function resetForm() {
     startedAt.current = Date.now();
     setDoneRef('');
@@ -76,6 +104,7 @@ export default function ActivityPage() {
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submitLock.current) return;
     setError('');
     if (!troop.trim() || !activityName.trim() || !section || !nature || !location.trim() || !leaderName.trim() || !leaderPhone.trim()) {
       setError('請填妥必填項目（旅團、活動、支部、性質、地點及負責領袖）。');
@@ -93,8 +122,12 @@ export default function ActivityPage() {
       setError('請填參加成員及領袖人數。');
       return;
     }
+    if (!confirmSubmit(
+      `確認提交活動知會？\n\n${troop}．${activityName}\n${startDateTime.replace('T', ' ')} → ${endDateTime.replace('T', ' ')}\n📍 ${location}\n成員 ${membersCount}・領袖 ${leadersCount}${parentsCount ? `・家長 ${parentsCount}` : ''}\n\n提交後會喺下方公開列表顯示（只顯示公開欄位，領袖聯絡資料唔會公開）。`,
+    )) return;
 
     const meta = getSubmissionMeta(event.currentTarget, startedAt.current);
+    submitLock.current = true;
     setBusy(true);
     const result = await api.submitActivityNotice({
       year: startDateTime.slice(0, 4), section, nature, troop, activityName,
@@ -102,8 +135,10 @@ export default function ActivityPage() {
       membersCount: Number(membersCount), leadersCount: Number(leadersCount), parentsCount: Number(parentsCount || 0),
       leaderName, leaderPhone, leaderEmail, note,
     }, meta);
+    submitLock.current = false;
     setBusy(false);
     if (result.ok && result.data) {
+      guard.clearDraft();
       setDoneRef(result.data.refCode || '已提交');
       window.scrollTo(0, 0);
     } else {
@@ -143,6 +178,15 @@ export default function ActivityPage() {
 
       <form className="panel" onSubmit={submit}>
         <h2>提交新知會</h2>
+        {guard.pending && (
+          <div className="draft-banner" role="status">
+            <span>♻️ 發現上次未提交嘅草稿（{new Date(guard.pending.t).toLocaleString('zh-HK')}）。</span>
+            <span className="draft-actions">
+              <button type="button" className="draft-restore" onClick={guard.restore}>回復草稿</button>
+              <button type="button" className="draft-discard" onClick={guard.discard}>放棄</button>
+            </span>
+          </div>
+        )}
         {error && <div className="err" role="alert">{error}</div>}
 
         <div className="frow">

@@ -124,7 +124,7 @@ function fireNotification(all: Announcement[], lastSeenId: string) {
     for (const ann of fresh) {
       new Notification(`📢 ${ann.title}`, {
         body: ann.content || `日期：${formatDate(ann.date)}`,
-        icon: '/favicon.ico',
+        icon: '/icons/icon-192.png',
         tag: `ann-${ann.id}`, // 避免重複
       });
     }

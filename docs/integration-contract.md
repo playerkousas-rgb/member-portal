@@ -324,3 +324,20 @@ v4.18.0 起區後台 `submitCourseReg` 將報名表**全部欄位**轉發去訓�
 - 公開報名照舊只憑 `courseId`（hub 班＝公開課程ID `crs_xxx`），區後台自動改走 hub 公開 `addReg`
   （write-only、唔送 apiKey／fileId），成員端唔使分別新舊制。
 - 對接合約詳見 CourseHub `docs/API.md`「addReg 報名欄位」及區後台 `docs/member-gs-handshake.md`。
+
+## Scout Admin 統一回報（成員端 ↔ scout-admin，唔經主 Code.gs）
+
+`app/layout.tsx` 載入 `https://scout-admin-blue.vercel.app/widget.js`（`data-app="成員系統"`），
+成員喺任何頁面右下角都可以遞交「問題回報／意見回饋」：
+
+- **唔關主 Code.gs 事**：payload 直接送 Scout Admin 自己嘅 Apps Script 接收端（統一回報格式 v1），
+  入區會既有嘅問題回報／意見回饋工作表，`來源APP` 欄會存「成員系統」；
+- 免 API key、免登入、可匿名；本站 `/api/proxy` 完全唔參與；
+- 「成員系統」係未登記來源——後台照收照顯示（🔹 原樣名稱）；想變正式膠囊，
+  喺 scout-admin `SOURCE_ALIASES`／`SOURCE_APPS` 加一行即可（可選，唔影響運作）。
+
+## 成員端防呆（本站行為，唔需要後台配合）
+
+借場／借物資／活動知會／訓練班報名四張表（`lib/useFormGuard.ts`）：草稿自動保存（localStorage
+`mp:draft:*`，大圖自動剔除防配額爆）、離開頁面提示、草稿一鍵回復、提交前確認清單、
+`submitLock` 防雙擊、成功自動清草稿。全部係瀏覽器端行為，後台零改動。

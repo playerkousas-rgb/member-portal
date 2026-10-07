@@ -1,7 +1,8 @@
 /* Service Worker for member-portal Web Push (shares infrastructure with scout-circulars). */
 'use strict';
 
-const NOTIFICATION_ICON = '/icons/notification-192.png';
+// 與 manifest 共用同一個 192px 圖示（唔再多存一份重複檔案——部署瘦身）
+const NOTIFICATION_ICON = '/icons/icon-192.png';
 const NOTIFICATION_BADGE = '/icons/badge-96.png';
 
 self.addEventListener('install', () => self.skipWaiting());

@@ -112,3 +112,32 @@ API Key 只可放 server env，**不可使用 `NEXT_PUBLIC_` 前綴**。
 npm run build
 npm audit
 ```
+
+## 表單防呆機制（lib/useFormGuard.ts）
+
+借場、借物資、活動知會、訓練班報名四張表全部有同一套防呆（移植自區系統 v4.15.0「寫入防呆」）：
+
+1. **草稿自動保存**——填緊嘅嘢 800ms 後自動存入瀏覽器 localStorage（`mp:draft:*`），refresh／意外關頁都唔會甩；收據／截圖大檔喺配額唔夠時會自動剔走、文字照保住；
+2. **離開提示**——有未提交內容就離開頁面／重新整理，瀏覽器會彈提示（同區系統探訪頁同一寫法）；
+3. **草稿回復**——返到頁面見到「♻️ 發現上次未提交嘅草稿」橫額，可以一鍵回復或者放棄；
+4. **確認清單**——撳提交前彈一次重點摘要（時段／數量／聯絡人），撳取消唔會遞交；
+5. **防雙擊**——`submitLock` 在 `setBusy` 生效前同步上鎖，連點唔會重複提交；
+6. **提交成功自動清草稿**；提交失敗表格原封不動，改完可以直接再試。
+
+## Scout Admin 統一回報系統（scout-admin）
+
+全站右下角有「🐛💬 回報 · 意見」浮動按鈕（`app/layout.tsx` 一行 `next/script` 載入 [scout-admin](https://github.com/playerkousas-rgb/scout-admin) 嘅 widget，`data-app="成員系統"`）：
+
+- 成員遇到問題／有意見，直接喺本站遞交，資料經 Scout Admin 嘅 Apps Script 入返區會張 Sheet——**唔經本站後端、唔使 API key、唔使登入、可以匿名**；
+- 「成員系統」暫時係未登記來源，後台會照收照顯示（🔹 成員系統）；想變正式膠囊，喺 scout-admin 嘅 `SOURCE_ALIASES`／`SOURCE_APPS` 各加一行「成員系統」即可，唔加唔影響運作；
+- widget 由 `https://scout-admin-blue.vercel.app/widget.js` 提供，本站零後端改動。
+
+## 部署瘦身｜防增肥守則（同 drawtheroute ReliefForge Pro 一套）
+
+> 目標：Vercel 儲存配額唔會爆，同時功能零倒退。
+
+1. **`.vercelignore` 係部署黑名單**——`.git`、`docs/`（補丁／合約文件）、`node_modules`、`.next`、`coverage`、`*.log/*.bak/*.tmp/*.old` 一律唔上部署包。新嘅開發腳本／測試輸出必須同步加入；
+2. **`public/` 檔案會原樣進部署包**——未引用嘅圖檔禁止提交；加新靜態資源前先 `grep -rn "檔名" app components public`；
+3. **圖示去重**——`sw.js` 與 manifest 共用同一個 `icon-192.png`（原本多存咗一份位元組級相同嘅 `notification-192.png`，已刪，省 49K）；
+4. **依賴極簡**——`package.json` 只有 `next / react / react-dom / qrcode.react` 四個 runtime 依賴；加新依賴前要講明理由；
+5. **提交前體檢**——`npm run build`＋`npm run typecheck` 通過先可以 push。

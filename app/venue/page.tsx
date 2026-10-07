@@ -1,10 +1,11 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { AntiSpamField, getSubmissionMeta } from '@/components/AntiSpamField';
 import TeamupCalendar from '@/components/TeamupCalendar';
 import { api } from '@/lib/api';
 import { usePublicInfo } from '@/lib/usePublicInfo';
+import { confirmSubmit, useFormGuard } from '@/lib/useFormGuard';
 import type { Venue } from '@/lib/types';
 import { useDistrict } from '@/lib/useDistrict';
 
@@ -14,6 +15,7 @@ export default function VenuePage() {
   const { withDistrict } = useDistrict();
   const { venueRules, teamupBookingUrl } = usePublicInfo();
   const startedAt = useRef(Date.now());
+  const submitLock = useRef(false);
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -44,8 +46,26 @@ export default function VenuePage() {
     });
   }, []);
 
+  // 防呆：草稿自動保存＋離開提示（詳見 lib/useFormGuard.ts）
+  const snapshot = useMemo(
+    () => ({ startDate, endDate, name, phone, email, troop, position, purpose, agree }),
+    [startDate, endDate, name, phone, email, troop, position, purpose, agree],
+  );
+  const guard = useFormGuard('mp:draft:venue', snapshot, (saved) => {
+    if (typeof saved.startDate === 'string') setStartDate(saved.startDate);
+    if (typeof saved.endDate === 'string') setEndDate(saved.endDate);
+    if (typeof saved.name === 'string') setName(saved.name);
+    if (typeof saved.phone === 'string') setPhone(saved.phone);
+    if (typeof saved.email === 'string') setEmail(saved.email);
+    if (typeof saved.troop === 'string') setTroop(saved.troop);
+    if (typeof saved.position === 'string') setPosition(saved.position);
+    if (typeof saved.purpose === 'string') setPurpose(saved.purpose);
+    setAgree(saved.agree === true);
+  }, { active: !doneRef });
+
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submitLock.current) return;
     setError('');
     if (empty(venueId) || empty(name) || empty(phone) || empty(startDate) || empty(endDate)) {
       setError('請填妥必填項目（場地、日期時間、姓名、電話）。');
@@ -59,15 +79,21 @@ export default function VenuePage() {
       setError('請先閱讀並同意借用規定。');
       return;
     }
+    if (!confirmSubmit(
+      `確認提交借用申請？\n\n時段：${startDate.replace('T', ' ')} → ${endDate.replace('T', ' ')}\n聯絡人：${name}（${phone}）\n${email ? `電郵：${email}\n` : ''}${purpose ? `用途：${purpose}\n` : ''}\n提交後區會會喺管理系統跟進，批核結果會寄到你所填嘅電郵。`,
+    )) return;
 
     const meta = getSubmissionMeta(event.currentTarget, startedAt.current);
+    submitLock.current = true;
     setBusy(true);
     const result = await api.submitVenueRequest(
       { venueId, startDate, endDate, name, phone, email, troop, position, purpose, agreeRules: agree },
       meta,
     );
+    submitLock.current = false;
     setBusy(false);
     if (result.ok && result.data) {
+      guard.clearDraft();
       setDoneRef(result.data.refCode || '已提交');
       window.scrollTo(0, 0);
     } else {

@@ -5,6 +5,7 @@ import { AntiSpamField, getSubmissionMeta } from '@/components/AntiSpamField';
 import CourseFpsQr from '@/components/CourseFpsQr';
 import { api } from '@/lib/api';
 import { SCOUT_DISTRICTS, SCOUT_REGIONS, SCOUT_SECTIONS } from '@/lib/scout';
+import { confirmSubmit, useFormGuard } from '@/lib/useFormGuard';
 import type { CourseLink } from '@/lib/types';
 import { useDistrict } from '@/lib/useDistrict';
 
@@ -74,6 +75,7 @@ export default function TrainingPage() {
   const [payer, setPayer] = useState('');
   const [payAccount, setPayAccount] = useState('');
   const [receiptFile, setReceiptFile] = useState<{ name: string; dataUrl: string; mimeType: string } | null>(null);
+  const submitLock = useRef(false);
   const [receiptBusy, setReceiptBusy] = useState(false);
   // 已填妥表格截圖（選填；正本上課時交回）
   const [formShotFile, setFormShotFile] = useState<{ name: string; dataUrl: string } | null>(null);
@@ -112,6 +114,65 @@ export default function TrainingPage() {
   const districts = SCOUT_DISTRICTS;
   const regions = SCOUT_REGIONS;
 
+  // 防呆：草稿自動保存＋離開提示（連入數紙一齊存；配額唔夠會自動剔走圖片、文字照保住）
+  const snapshot = useMemo(
+    () => ({
+      courseId, memberType, nameZh, nameEn, gender, dob, phone, email,
+      scoutDistrict, region, troop, scoutId, scoutPosition, reason,
+      consentParent, gName, gRelation, gPhone, gEmail,
+      consentLeader, leaderName, leaderTitle, leaderEmail,
+      payer, payAccount, needReceipt, remark,
+      receiptName: receiptFile?.name || '', receiptDataUrl: receiptFile?.dataUrl || '',
+      receiptMimeType: receiptFile?.mimeType || '', formShotName: formShotFile?.name || '',
+      formShotDataUrl: formShotFile?.dataUrl || '',
+    }),
+    [courseId, memberType, nameZh, nameEn, gender, dob, phone, email,
+      scoutDistrict, region, troop, scoutId, scoutPosition, reason,
+      consentParent, gName, gRelation, gPhone, gEmail,
+      consentLeader, leaderName, leaderTitle, leaderEmail,
+      payer, payAccount, needReceipt, remark, receiptFile, formShotFile],
+  );
+  const guard = useFormGuard('mp:draft:training', snapshot, (saved) => {
+    const text = (v: unknown, set: (s: string) => void) => { if (typeof v === 'string') set(v); };
+    text(saved.courseId, setCourseId);
+    text(saved.memberType, setMemberType);
+    text(saved.nameZh, setNameZh);
+    text(saved.nameEn, setNameEn);
+    text(saved.gender, setGender);
+    text(saved.dob, setDob);
+    text(saved.phone, setPhone);
+    text(saved.email, setEmail);
+    text(saved.scoutDistrict, setScoutDistrict);
+    text(saved.region, setRegion);
+    text(saved.troop, setTroop);
+    text(saved.scoutId, setScoutId);
+    text(saved.scoutPosition, setScoutPosition);
+    text(saved.reason, setReason);
+    text(saved.gName, setGName);
+    text(saved.gRelation, setGRelation);
+    text(saved.gPhone, setGPhone);
+    text(saved.gEmail, setGEmail);
+    text(saved.leaderName, setLeaderName);
+    text(saved.leaderTitle, setLeaderTitle);
+    text(saved.leaderEmail, setLeaderEmail);
+    text(saved.payer, setPayer);
+    text(saved.payAccount, setPayAccount);
+    text(saved.needReceipt, setNeedReceipt);
+    text(saved.remark, setRemark);
+    setConsentParent(saved.consentParent === true);
+    setConsentLeader(saved.consentLeader === true);
+    if (typeof saved.receiptDataUrl === 'string' && saved.receiptDataUrl && typeof saved.receiptName === 'string') {
+      setReceiptFile({
+        name: saved.receiptName,
+        dataUrl: saved.receiptDataUrl,
+        mimeType: typeof saved.receiptMimeType === 'string' ? saved.receiptMimeType : 'image/jpeg',
+      });
+    }
+    if (typeof saved.formShotDataUrl === 'string' && saved.formShotDataUrl && typeof saved.formShotName === 'string') {
+      setFormShotFile({ name: saved.formShotName, dataUrl: saved.formShotDataUrl });
+    }
+  }, { active: !doneRef });
+
   function pickCourse(id: string) {
     setCourseId(id);
     window.scrollTo({ top: document.getElementById('reg-form')?.offsetTop ?? 0, behavior: 'smooth' });
@@ -119,6 +180,7 @@ export default function TrainingPage() {
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (submitLock.current) return;
     setError('');
     if (empty(courseId) || empty(nameZh) || empty(phone) || empty(email) || empty(memberType)) {
       setError('請填妥必填項目（課程、支部、中文姓名、電話、電郵）。');
@@ -128,7 +190,12 @@ export default function TrainingPage() {
       setError('請上傳入數紙截圖。未繳費將不獲處理申請。');
       return;
     }
+    if (!confirmSubmit(
+      `確認提交報名？\n\n課程：${selected?.title || courseId}\n姓名：${nameZh}${memberType ? `（${memberType}）` : ''}\n電話：${phone}｜電郵：${email}\n入數紙：${receiptFile.name}\n\n提交後職員核對入數紙，會以電郵確認。`,
+    )) return;
+
     const meta = getSubmissionMeta(e.currentTarget, startedAt.current);
+    submitLock.current = true;
     setBusy(true);
     // 送 CourseHub v6.2.1 canonical 欄位；區後台 v4.18.0 會自動對應舊制別名（scoutRank／extra／
     // guardian*／leaderPosition／payerName／note 等）一併轉發，新舊制收表都收得齊。
@@ -145,8 +212,12 @@ export default function TrainingPage() {
       receiptDataUrl: receiptFile.dataUrl,
       ...(formShotFile ? { formDataUrl: formShotFile.dataUrl } : {}),
     }, meta);
+    submitLock.current = false;
     setBusy(false);
-    if (r.ok && r.data) { setDoneRef(r.data.refCode || '已提交'); setDoneTitle(selected?.title || ''); setDoneCourse(selected || null); window.scrollTo(0, 0); }
+    if (r.ok && r.data) {
+      guard.clearDraft();
+      setDoneRef(r.data.refCode || '已提交'); setDoneTitle(selected?.title || ''); setDoneCourse(selected || null); window.scrollTo(0, 0);
+    }
     else setError(r.error || '提交失敗，請稍後再試。');
   }
 
@@ -271,6 +342,15 @@ export default function TrainingPage() {
 
       <form id="reg-form" className="panel" onSubmit={submit}>
         <h2>報名表</h2>
+        {guard.pending && (
+          <div className="draft-banner" role="status">
+            <span>♻️ 發現上次未提交嘅草稿（{new Date(guard.pending.t).toLocaleString('zh-HK')}）。收據／截圖有機會因儲存空間限制冇備份到，回復後請檢查。</span>
+            <span className="draft-actions">
+              <button type="button" className="draft-restore" onClick={guard.restore}>回復草稿</button>
+              <button type="button" className="draft-discard" onClick={guard.discard}>放棄</button>
+            </span>
+          </div>
+        )}
         {error && <div className="err">{error}</div>}
 
         <div className="frow">

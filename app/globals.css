@@ -294,3 +294,11 @@ a.contact-primary-card:hover{border-color:#93c5fd;box-shadow:0 5px 14px rgba(0,5
 .course-fps-actions{display:flex;gap:8px;flex-wrap:wrap;}
 .course-fps-msg{font-size:12px;color:#166534;font-weight:700;}
 @media (max-width:640px){.course-fps{grid-template-columns:1fr;}.course-fps-qr{max-width:260px;margin:0 auto;}}
+
+/* ── 防呆：草稿回復橫額 ── */
+.draft-banner{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:#fffbeb;border:1px solid #fde68a;border-left:4px solid #f59e0b;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#78350f;}
+.draft-banner .draft-when{color:#92400e;font-size:11.5px;}
+.draft-banner .draft-actions{display:flex;gap:8px;margin-left:auto;}
+.draft-banner button{border:none;border-radius:7px;padding:5px 14px;font-size:12.5px;font-weight:700;cursor:pointer;}
+.draft-restore{background:#b45309;color:#fff;}
+.draft-discard{background:transparent;color:#92400e;border:1px solid #fcd34d !important;}
