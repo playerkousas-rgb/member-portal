@@ -119,9 +119,20 @@ note
 | `TTLOCK_PASSWORD` | `SCIENER_PASSWORD` 或 `ttlockPassword` | |
 | `TTLOCK_LOCK_ID` | `SCIENER_LOCK_ID` 或 `ttlockLockId` | 亦可填喺場地列 `scienerLockId` |
 | `TTLOCK_API_BASE` | `SCIENER_API_BASE` 或 `ttlockApiBase` | 唔填預設 `https://api.sciener.com`（同 `api.ttlock.com` 同一後端；帳號喺 eu／cn 區先要改） |
-| （新） | `PWD_MODE` | **重要**：預設 `phone4`＝電話頭 4 位，但 TTLock **時段密碼需要 6–8 位**（舊 skw-booking 筆記：4 位會被拒）——呢個好可能就係「抄齊 key 都未通」嘅原因。建議先填 `random`（隨機 6 位）測通條線，之後想試 phone4 再改返 |
+| （新） | `PWD_MODE` | 預設 `phone4`＝電話頭 4 位（**4 位碼係得嘅**——區方幫領袖開碼一直都用 4 位；舊 skw-booking 筆記「4 位會被拒」實為撞碼被拒嘅誤診，TTLock 拒嘅係同鎖上 active 重複密碼，唔係長度）。維持 `phone4` 唔使改 |
 
-⚠️ `PWD_MODE=phone4` 時萬一 TTLock 拒絕 4 位碼：一鍵批准會重試 8 次後 fallback **隨機密碼——嗰個密碼係冇寫入鎖嘅**，申請人收到的電郵密碼開唔到門，管理端會見到 warn「TTLock 建碼失敗，已改用隨機密碼」。所以**批准後必須檢查 warn 欄**；見到呢句就將 `PWD_MODE` 改做 `random` 再批一次。
+### 電話密碼雙位制（後台需套用 `docs/backend-venue-passcode.patch`）
+
+區方實戰方案（補丁已寫好，並用模擬 Sciener 鎖做過完整 E2E 驗證）：
+
+- 第一段借用＝**電話頭 4 位**；第二段＝**電話尾 4 位**——領袖記自己電話就記到密碼，唔使睇電郵；
+- 建碼候選次序：頭4 → 尾4 → 頭4+1…（撞碼後備）；邊個先批核，邊個攞頭4；
+- **同一電話同時最多兩段借用**（pending 或 approved 而時段未完結）——因為一個人只有兩個密碼位；時段完結＋15 分鐘（密碼過期）之後個位自動釋放；
+- 第三段提交會被拒：「這個電話號碼同時最多兩段借用時間（密碼位：電話頭4位＋尾4位）；請等現有借用時段完結或取消後再申請。」
+
+實測結果（mock 後台＋模擬鎖 `docs/backend-mock-ttlock-sim.patch`）：陳大文 91234567 第一段→密碼 **9123**、第二段→**4567**；黃小芬 91239999（同陳大文撞頭4位）→**9999**（自己尾4位）；同一電話第三段→正確拒收；三個申請人電郵各收到正確密碼。
+
+套用方法（scout-district-portal 一側）：`git apply docs/backend-venue-passcode.patch`（或照 patch 內容手動改 `gs/Code.gs` 三處：`createTtlockPasscode_` 改候選制、新增四個 helper、`submitVenueRequest_` 加兩段上限檢查）→ 開 Apps Script 編輯器貼上新 `Code.gs` → **部署 → 管理部署 → 編輯 → 新版本**。⚠️ 改 code 必須重新部署 Web App 先生效（改 Config 則唔使）。
 
 ### `submitStockRequest`（舊版單項相容）
 

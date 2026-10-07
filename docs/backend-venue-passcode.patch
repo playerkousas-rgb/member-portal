@@ -1,0 +1,90 @@
+diff --git a/gs/Code.gs b/gs/Code.gs
+index a727141..e3e2cbb 100644
+--- a/gs/Code.gs
++++ b/gs/Code.gs
+@@ -1122,6 +1122,12 @@ function submitVenueRequest_(b) {
+   })[0];
+   if (!venue) return err('場地不存在');
+ 
++  // 電話頭4／尾4密碼方案（PWD_MODE=phone4）：一個電話只有兩個密碼位，
++  // 所以同時最多兩段借用（pending 或 approved 而時段未完結）。
++  if (phoneSlotLimited_() && countActiveBookingsByPhone_(req.phone) >= 2) {
++    return err('這個電話號碼同時最多兩段借用時間（密碼位：電話頭4位＋尾4位）；請等現有借用時段完結或取消後再申請。');
++  }
++
+   var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.VENUE_REQ);
+   if (!sh) return err('尚未執行 setupSheets()');
+ 
+@@ -4636,24 +4642,67 @@ function createTtlockPasscode_(phone, startDate, endDate, name, venueLockId) {
+   var base = ttlockBase_();
+   var start = new Date(startDate); start.setMinutes(start.getMinutes() - 15);
+   var end = new Date(endDate); end.setMinutes(end.getMinutes() + 15);
+-  var passcode = buildKeyboardPwd_(phone);
++  // 區方實戰方案：第一段借用＝電話頭4位，第二段＝尾4位。同人再 book 或者
++  // 異人撞頭4碼，TTLock 都會拒 → 候選次序：頭4 → 尾4 → 之後先至 +1 後備。
++  var candidates = passcodeCandidates_(phone);
+   var lastErr = null;
+-  for (var attempt = 0; attempt < 8; attempt++) {
++  for (var i = 0; i < candidates.length; i++) {
+     var payload = {
+       clientId: clientId, accessToken: token, lockId: String(lockId),
+-      keyboardPwd: passcode, keyboardPwdName: String(name || '申請人').substring(0, 30),
++      keyboardPwd: candidates[i], keyboardPwdName: String(name || '申請人').substring(0, 30),
+       startDate: String(start.getTime()), endDate: String(end.getTime()),
+       addType: '2', date: String(Date.now())
+     };
+     var res = UrlFetchApp.fetch(base + '/v3/keyboardPwd/add', { method: 'post', payload: payload, muteHttpExceptions: true });
+     var data; try { data = JSON.parse(res.getContentText()); } catch (e) { data = {}; }
+-    if (data.keyboardPwdId || data.errcode === 0) return { passcode: passcode, validFrom: start, validTo: end };
++    if (data.keyboardPwdId || data.errcode === 0) return { passcode: candidates[i], validFrom: start, validTo: end };
+     lastErr = data;
+-    passcode = String(parseInt(passcode, 10) + 1).padStart(String(passcode).length, '0'); // 撞碼 +1 重試
+   }
+   throw new Error('TTLock 建碼多次失敗 ' + (lastErr.errmsg || JSON.stringify(lastErr)));
+ }
+ 
++/** 電話尾4位（密碼第二個位） */
++function phoneTail4_(phone) {
++  var digits = String(phone || '').replace(/\D/g, '');
++  return digits.length >= 4 ? digits.slice(-4) : '';
++}
++
++/** 建碼候選次序：頭4 → 尾4 → 頭4+1…（撞碼後備）。random 模式唔使尾4。 */
++function passcodeCandidates_(phone) {
++  var head = buildKeyboardPwd_(phone);
++  var list = [head];
++  if (phoneSlotLimited_()) {
++    var tail = phoneTail4_(phone);
++    if (tail && tail !== head) list.push(tail);
++  }
++  var cur = head;
++  for (var i = 0; i < 4; i++) {
++    cur = String(parseInt(cur, 10) + 1).padStart(String(cur).length, '0');
++    if (list.indexOf(cur) < 0) list.push(cur);
++  }
++  return list;
++}
++
++/** PWD_MODE 屬 phone4 系（頭4／尾4）先有「同時兩段」限制；random 冇呢個需要 */
++function phoneSlotLimited_() {
++  var mode = String(lockCfg_().pwdMode || 'phone4').toLowerCase();
++  return mode === 'phone4' || mode === 'phone4head' || mode === 'phone4tail';
++}
++
++/** 同一電話而家 pending／approved 而時段未過嘅借用數（時段完＋15 分鐘密碼過期先釋放個位） */
++function countActiveBookingsByPhone_(phone) {
++  var key = String(phone || '').replace(/\D/g, '');
++  if (!key) return 0;
++  var nowMs = Date.now();
++  return readSheet_(SHEET.VENUE_REQ).filter(function (r) {
++    var st = String(r.status || 'pending').toLowerCase();
++    if (st !== 'pending' && st !== 'approved') return false;
++    if (String(r.phone || '').replace(/\D/g, '') !== key) return false;
++    var end = new Date(r.endDate || r.startDate || 0).getTime();
++    return !isNaN(end) && end + 15 * 60 * 1000 >= nowMs;
++  }).length;
++}
++
+ // ---------- Teamup ----------
+ 
+ /** Teamup 金鑰：主用 TEAMUP_*，兼容舊 teamup* 欄名 */

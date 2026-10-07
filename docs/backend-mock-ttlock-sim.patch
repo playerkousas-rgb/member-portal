@@ -1,0 +1,50 @@
+diff --git a/scripts/mock-gs-server.js b/scripts/mock-gs-server.js
+index e1d21d3..013d7b2 100644
+--- a/scripts/mock-gs-server.js
++++ b/scripts/mock-gs-server.js
+@@ -20,6 +20,9 @@ const http = require('http');
+ 
+ const code = fs.readFileSync(path.join(__dirname, '..', 'gs', 'Code.gs'), 'utf8');
+ const PORT = Number(process.env.PORT || 8788);
++// 模擬 Sciener/TTLock 遠端鎖：記住 active 密碼，撞碼會拒（同真鎖行為一致）
++const mockTtlockCodes = new Set();
++let mockTtlockSeq = 0;
+ 
+ // ───────── 記憶體 Sheet ─────────
+ function makeSheet(name, rows = []) {
+@@ -123,8 +126,19 @@ const ctx = {
+     // 等預覽行到成條批核線。其他 URL 照舊死回 {}。
+     fetch: (_url, opt = {}) => {
+       let payload = {};
+-      try { payload = JSON.parse(String(opt.payload || '{}')); } catch (e) {}
++      if (opt.payload && typeof opt.payload === 'object') payload = opt.payload;
++      else { try { payload = JSON.parse(String(opt.payload || '{}')); } catch (e) {} }
+       const reply = (obj) => ({ getContentText: () => JSON.stringify(obj), getResponseCode: () => 200 });
++      const url = String(_url || '');
++      // 模擬 Sciener/TTLock：oauth2 派 token；keyboardPwd/add 撞 active 碼會拒
++      if (/oauth2\/token/.test(url)) return reply({ access_token: 'mock-token-' + Date.now() });
++      if (/keyboardPwd\/add/.test(url)) {
++        const code = String(payload.keyboardPwd || '');
++        if (!code) return reply({ errcode: -1, errmsg: 'missing keyboardPwd' });
++        if (mockTtlockCodes.has(code)) return reply({ errcode: 301, errmsg: 'keyboardPwd duplicated (active)' });
++        mockTtlockCodes.add(code);
++        return reply({ keyboardPwdId: 'kpid_' + (++mockTtlockSeq), errcode: 0 });
++      }
+       // readSheet：照 Code.gs readSheet_ 同款（表頭 → 物件陣列）
+       const readSheet = (name) => {
+         const sh = sheets[name];
+@@ -263,7 +277,13 @@ const setCfg = (k, v) => {
+ };
+ setCfg('districtCode', 'SKW');
+ setCfg('districtName', '筲箕灣區');
+-setCfg('API_KEY_HASH', ctx.sha256_('dev'));   // 本機一律用 apiKey=dev，唔使每次抄新 key
++setCfg('API_KEY_HASH', ctx.sha256_('dev')); // 本機一律用 apiKey=dev，唔使每次抄新 key
++setCfg('SCIENER_CLIENT_ID', 'mock-client');   // 模擬 Sciener 憑證（行真 code 路徑）
++setCfg('SCIENER_CLIENT_SECRET', 'mock-secret');
++setCfg('SCIENER_USERNAME', 'mock@local');
++setCfg('SCIENER_PASSWORD', 'mock-pass');
++setCfg('SCIENER_LOCK_ID', '7210001');
++setCfg('PWD_MODE', 'phone4');   // 本機一律用 apiKey=dev，唔使每次抄新 key
+ 
+ // 超級管理員（示範帳號）
+ sheets.Users.appendRow(['sheep', 'DC', 'TRUE', '牧羊人', '', '', ctx.hashPassword_ ? ctx.hashPassword_('0728') : '0728']);
