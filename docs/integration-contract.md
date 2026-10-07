@@ -107,6 +107,22 @@ note
 
 電郵由部署 Apps Script 嘅 Google 帳戶經 `MailApp` 寄出（Apps Script 免費額度：消費帳戶每日 100 封），唔使額外 SMTP 設定。
 
+### 由舊 skw-booking（Vercel）搬 key 過來嘅對照
+
+主 Sheet **Config 分頁**係「一列 key＝一個設定」（key 欄＋value 欄），直接喺 Google Sheet 填；Config 係 runtime 讀，**改完唔使重新部署 Web App**。舊名 `ttlock*` 同新名 `SCIENER_*` 都認得（`cfgFirst_` 自動 fallback）：
+
+| 舊 Vercel 環境變數（skw-booking） | Config 表 key（任揀一個） | 備註 |
+|---|---|---|
+| `TTLOCK_CLIENT_ID` | `SCIENER_CLIENT_ID` 或 `ttlockClientId` | |
+| `TTLOCK_CLIENT_SECRET` | `SCIENER_CLIENT_SECRET` 或 `ttlockClientSecret` | |
+| `TTLOCK_USERNAME` | `SCIENER_USERNAME` 或 `ttlockUsername` | TTLock App 登入 email |
+| `TTLOCK_PASSWORD` | `SCIENER_PASSWORD` 或 `ttlockPassword` | |
+| `TTLOCK_LOCK_ID` | `SCIENER_LOCK_ID` 或 `ttlockLockId` | 亦可填喺場地列 `scienerLockId` |
+| `TTLOCK_API_BASE` | `SCIENER_API_BASE` 或 `ttlockApiBase` | 唔填預設 `https://api.sciener.com`（同 `api.ttlock.com` 同一後端；帳號喺 eu／cn 區先要改） |
+| （新） | `PWD_MODE` | **重要**：預設 `phone4`＝電話頭 4 位，但 TTLock **時段密碼需要 6–8 位**（舊 skw-booking 筆記：4 位會被拒）——呢個好可能就係「抄齊 key 都未通」嘅原因。建議先填 `random`（隨機 6 位）測通條線，之後想試 phone4 再改返 |
+
+⚠️ `PWD_MODE=phone4` 時萬一 TTLock 拒絕 4 位碼：一鍵批准會重試 8 次後 fallback **隨機密碼——嗰個密碼係冇寫入鎖嘅**，申請人收到的電郵密碼開唔到門，管理端會見到 warn「TTLock 建碼失敗，已改用隨機密碼」。所以**批准後必須檢查 warn 欄**；見到呢句就將 `PWD_MODE` 改做 `random` 再批一次。
+
 ### `submitStockRequest`（舊版單項相容）
 
 ```json
