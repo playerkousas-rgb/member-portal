@@ -26,7 +26,9 @@ export default function DistrictPicker({
   return (
     <div className="center-bg" style={{ minHeight: '52vh' }}>
       <div className="panel">
-        <div className="logo">🧭</div>
+        <div className="logo" aria-hidden="true">
+          <img src="/icons/logo-256.png" alt="" width={64} height={64} />
+        </div>
         <h1>{title}</h1>
         <p className="sub">{description}</p>
         <div className="field">

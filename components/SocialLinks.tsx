@@ -1,9 +1,10 @@
 import Link from 'next/link';
+import ReportLink from '@/components/ReportLink';
 import type { DistrictLinks } from '@/lib/district';
 
 type Variant = 'footer' | 'hero' | 'panel';
 
-type SocialKey = keyof DistrictLinks | 'contact';
+type SocialKey = keyof DistrictLinks | 'contact' | 'report';
 
 interface SocialItemConfig {
   key: SocialKey;
@@ -19,6 +20,7 @@ const ITEMS: SocialItemConfig[] = [
   { key: 'facebook', label: 'Facebook', short: 'FB', className: 'social-fb', isExternal: true },
   { key: 'website', label: '區會網頁', short: '網頁', className: 'social-web', isExternal: true },
   { key: 'contact', label: '聯絡及查詢', short: '查詢', className: 'social-contact', defaultHref: '/contact', isExternal: false },
+  { key: 'report', label: '問題回報 · 意見回饋', short: '回報', className: 'social-report' },
 ];
 
 function Icon({ kind }: { kind: SocialKey }) {
@@ -45,6 +47,18 @@ function Icon({ kind }: { kind: SocialKey }) {
     return (
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
         <path d="M6.62 10.79a15.053 15.053 0 006.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" />
+      </svg>
+    );
+  }
+  if (kind === 'report') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          d="M4 5.5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-8.4L7.7 19.9a1 1 0 0 1-1.7-.8v-2.6H4a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1z"
+          fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"
+        />
+        <path d="M12 8.2v3" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+        <circle cx="12" cy="13.4" r="1.05" fill="currentColor" />
       </svg>
     );
   }
@@ -78,6 +92,11 @@ export default function SocialLinks({
       const href = contactHref || links?.contact || item.defaultHref || '/contact';
       return { ...item, href };
     }
+    if (item.key === 'report') {
+      // 回報掣放喺「查詢」隔離：一齊出現、一齊收起
+      if (!shouldIncludeContact) return null;
+      return { ...item, href: '#' };
+    }
     const href = links?.[item.key as keyof DistrictLinks];
     if (!href) return null;
     return { ...item, href };
@@ -107,6 +126,14 @@ export default function SocialLinks({
               </span>
             </>
           );
+
+          if (item.key === 'report') {
+            return (
+              <ReportLink key={item.key} className={`social-btn ${item.className}`} title={item.label}>
+                {content}
+              </ReportLink>
+            );
+          }
 
           if (isInternal) {
             return (

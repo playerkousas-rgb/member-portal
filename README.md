@@ -22,6 +22,16 @@
 
 `/course` 只係舊網址，會轉到 `/training`；`/calendar` 係舊網址，會轉到 `/venue#availability`。
 
+## 品牌及圖示
+
+全站圖示用**香港童軍總會筲箕灣區徽號**（與 [scout-circulars](https://github.com/playerkousas-rgb/scout-circulars)
+`icons/orgs/shau_kei_wan-256.png` 同一來源：總會官網上載嘅區徽 `scout.org.hk/uploads/tc/districts/Shau_Kei_Wan.JPG`）：
+
+- `favicon-16/32.png`：透明底、區徽原樣（瀏覽器分頁用）；
+- `icon-192/512.png`、`apple-touch-icon.png`：白底置中（PWA 安裝圖示及推送通知大圖）；
+- `logo-256.png`：站內標誌（header 品牌、揀區畫面），透明底原樣；
+- `badge-96.png` 仍然係通知列白影（Android 狀態列只認 alpha，保留通用百合花輪廓最清晰）。
+
 ### 多項物資申請
 
 `/stock` 只需填寫一次申請人資料，然後可在物資清單旁輸入多個數量。proxy 會先以 `listItems` 核對主 Sheet 最新庫存，再以一個批次編號提交：
@@ -126,8 +136,9 @@ npm audit
 
 ## Scout Admin 統一回報系統（scout-admin）
 
-全站右下角有「🐛💬 回報 · 意見」浮動按鈕（`app/layout.tsx` 一行 `next/script` 載入 [scout-admin](https://github.com/playerkousas-rgb/scout-admin) 嘅 widget，`data-app="成員系統"`）：
+回報入口放喺「查詢」隔離（`app/layout.tsx` 一行 `next/script` 載入 [scout-admin](https://github.com/playerkousas-rgb/scout-admin) 嘅 widget，`data-app="成員系統"`；widget 自帶嘅右下角浮動掣已用 CSS 隱藏）：
 
+- 入口位置：首頁社交列「查詢」隔離、頁尾「聯絡及查詢」隔離、聯絡及查詢頁嘅查詢卡隔離（`components/ReportLink.tsx` 負責打開 widget 嘅 modal；widget 未載入完會等，載入唔到就開獨立回報頁）；
 - 成員遇到問題／有意見，直接喺本站遞交，資料經 Scout Admin 嘅 Apps Script 入返區會張 Sheet——**唔經本站後端、唔使 API key、唔使登入、可以匿名**；
 - 「成員系統」暫時係未登記來源，後台會照收照顯示（🔹 成員系統）；想變正式膠囊，喺 scout-admin 嘅 `SOURCE_ALIASES`／`SOURCE_APPS` 各加一行「成員系統」即可，唔加唔影響運作；
 - widget 由 `https://scout-admin-blue.vercel.app/widget.js` 提供，本站零後端改動。
