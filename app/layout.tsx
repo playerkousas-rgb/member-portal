@@ -2,6 +2,7 @@ import './globals.css';
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import Script from 'next/script';
+import { Analytics } from '@vercel/analytics/next';
 import Shell from '@/components/Shell';
 
 export const metadata: Metadata = {
@@ -41,6 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(function(){})}`,
           }}
         />
+        <Analytics />
       </body>
     </html>
   );
