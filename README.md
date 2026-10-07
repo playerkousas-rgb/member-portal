@@ -18,7 +18,7 @@
 | `/stock` | `listItems`（主 Sheet 即時庫存） | `submitStockBatchRequest`（proxy；支援多項一次遞交） |
 | `/training` | `listCourseLinks` | `submitCourseReg` → 每班 Script `addReg` |
 | `/activity` | `listActivityNotices` | `submitActivityNotice` |
-| 全站 | `getConfig`、`getSystem` | 系統鎖定時 server 拒絕提交 |
+| 全站 | `getConfig`、`getSystem`、`getPublicInfo` | 系統鎖定時 server 拒絕提交；借用規則／旅團清單／Teamup 網址等動態文字以區系統 Config 為唯一來源（本地常識只作後備） |
 
 `/course` 只係舊網址，會轉到 `/training`；`/calendar` 係舊網址，會轉到 `/venue#availability`。
 
@@ -31,12 +31,13 @@
 
 ### 通告通知（Web Push）
 
-首頁「查看通告」區內嘅「🔔 通告通知」按鈕，係**通告圖書館（scout-circulars）嘅成員入口**，兩者共用同一個 Supabase 訂閱表、同一對 VAPID key、同一個 `push-client.js` 協定及同一份 `public/subscription_catalog.json` 字典（v3.0.0，兩邊檔案必須一致）。設定面板嘅結構、分組及用語同圖書館睇齊（支部 → 服務／活動／比賽 → 訓練分組），只係配色換成成員系統嘅白底版本：
+首頁「查看通告」區內嘅「🔔 通告通知」按鈕，係**通告圖書館（scout-circulars）嘅成員入口**，兩者共用同一個 Supabase 訂閱表、同一對 VAPID key、同一份 `push-client.js`（全域名稱同樣係 `ScoutPushClient`，兩邊檔案必須一致）及同一份 `public/subscription_catalog.json` 字典（v3.3.0，兩邊檔案必須一致）。設定面板嘅結構、分組及用語同圖書館睇齊（支部 → 服務／活動／比賽／公布／小工具 → 訓練分組），只係配色換成成員系統嘅白底版本：
 
-- 成員先選**支部**，再揀活動／服務／比賽，訓練可以只揀自己有興趣嘅個別項目（綱要分組摺疊 + 名稱搜尋），唔需要一次過訂閱「所有訓練」；
-- 亦可一鍵「全選：所有新通告」（`all:new`）；
+- 全選有**兩個獨立剔項**：「全選：所有通告」（`all:notices`，小工具以外嘅所有新通告，含公布及未分類）同「全選：所有小工具」（`all:tools`）；兩個都剔＝所有新消息。舊版單一 `all:new` 保留相容，已儲存嘅舊設定會自動顯示成兩個都剔；
+- 成員先選**支部**，再揀活動／服務／比賽／公布／小工具，訓練可以只揀自己有興趣嘅個別項目（綱要分組摺疊 + 名稱搜尋），唔需要一次過訂閱「所有訓練」；被全選包住嘅組別會收埋，取消全選時原樣復原；
 - 匿名訂閱 — 只存瀏覽器 PushSubscription 及隨機 client token（server 只存 token 嘅 SHA-256），不收集任何個人資料；
-- 選項上限同 `/api/push-subscriptions` 一致（每個裝置最多 60 個項目；`all:new` 唔計）。
+- 選項上限同 `/api/push-subscriptions` 一致（每個裝置最多 60 個項目；全選唔使配對支部，淨係剔全選時 server 會補返全部支部以符合資料表 1..8 支部限制）；
+- 推送由圖書館嘅 `notify.py` 派送：點擊通知會打開通告圖書館嘅結果頁（`sw.js` 會處理跨 origin 目標）。
 
 ## 絕對分工
 
@@ -111,3 +112,32 @@ API Key 只可放 server env，**不可使用 `NEXT_PUBLIC_` 前綴**。
 npm run build
 npm audit
 ```
+
+## 表單防呆機制（lib/useFormGuard.ts）
+
+借場、借物資、活動知會、訓練班報名四張表全部有同一套防呆（移植自區系統 v4.15.0「寫入防呆」）：
+
+1. **草稿自動保存**——填緊嘅嘢 800ms 後自動存入瀏覽器 localStorage（`mp:draft:*`），refresh／意外關頁都唔會甩；收據／截圖大檔喺配額唔夠時會自動剔走、文字照保住；
+2. **離開提示**——有未提交內容就離開頁面／重新整理，瀏覽器會彈提示（同區系統探訪頁同一寫法）；
+3. **草稿回復**——返到頁面見到「♻️ 發現上次未提交嘅草稿」橫額，可以一鍵回復或者放棄；
+4. **確認清單**——撳提交前彈一次重點摘要（時段／數量／聯絡人），撳取消唔會遞交；
+5. **防雙擊**——`submitLock` 在 `setBusy` 生效前同步上鎖，連點唔會重複提交；
+6. **提交成功自動清草稿**；提交失敗表格原封不動，改完可以直接再試。
+
+## Scout Admin 統一回報系統（scout-admin）
+
+全站右下角有「🐛💬 回報 · 意見」浮動按鈕（`app/layout.tsx` 一行 `next/script` 載入 [scout-admin](https://github.com/playerkousas-rgb/scout-admin) 嘅 widget，`data-app="成員系統"`）：
+
+- 成員遇到問題／有意見，直接喺本站遞交，資料經 Scout Admin 嘅 Apps Script 入返區會張 Sheet——**唔經本站後端、唔使 API key、唔使登入、可以匿名**；
+- 「成員系統」暫時係未登記來源，後台會照收照顯示（🔹 成員系統）；想變正式膠囊，喺 scout-admin 嘅 `SOURCE_ALIASES`／`SOURCE_APPS` 各加一行「成員系統」即可，唔加唔影響運作；
+- widget 由 `https://scout-admin-blue.vercel.app/widget.js` 提供，本站零後端改動。
+
+## 部署瘦身｜防增肥守則（同 drawtheroute ReliefForge Pro 一套）
+
+> 目標：Vercel 儲存配額唔會爆，同時功能零倒退。
+
+1. **`.vercelignore` 係部署黑名單**——`.git`、`docs/`（補丁／合約文件）、`node_modules`、`.next`、`coverage`、`*.log/*.bak/*.tmp/*.old` 一律唔上部署包。新嘅開發腳本／測試輸出必須同步加入；
+2. **`public/` 檔案會原樣進部署包**——未引用嘅圖檔禁止提交；加新靜態資源前先 `grep -rn "檔名" app components public`；
+3. **圖示去重**——`sw.js` 與 manifest 共用同一個 `icon-192.png`（原本多存咗一份位元組級相同嘅 `notification-192.png`，已刪，省 49K）；
+4. **依賴極簡**——`package.json` 只有 `next / react / react-dom / qrcode.react` 四個 runtime 依賴；加新依賴前要講明理由；
+5. **提交前體檢**——`npm run build`＋`npm run typecheck` 通過先可以 push。

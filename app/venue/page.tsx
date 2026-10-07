@@ -1,10 +1,11 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { AntiSpamField, getSubmissionMeta } from '@/components/AntiSpamField';
 import TeamupCalendar from '@/components/TeamupCalendar';
 import { api } from '@/lib/api';
-import { VENUE_RULES } from '@/lib/publicContent';
+import { usePublicInfo } from '@/lib/usePublicInfo';
+import { confirmSubmit, useFormGuard } from '@/lib/useFormGuard';
 import type { Venue } from '@/lib/types';
 import { useDistrict } from '@/lib/useDistrict';
 
@@ -12,7 +13,9 @@ const empty = (value: string) => !value.trim();
 
 export default function VenuePage() {
   const { withDistrict } = useDistrict();
+  const { venueRules, teamupBookingUrl } = usePublicInfo();
   const startedAt = useRef(Date.now());
+  const submitLock = useRef(false);
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -43,8 +46,26 @@ export default function VenuePage() {
     });
   }, []);
 
+  // 防呆：草稿自動保存＋離開提示（詳見 lib/useFormGuard.ts）
+  const snapshot = useMemo(
+    () => ({ startDate, endDate, name, phone, email, troop, position, purpose, agree }),
+    [startDate, endDate, name, phone, email, troop, position, purpose, agree],
+  );
+  const guard = useFormGuard('mp:draft:venue', snapshot, (saved) => {
+    if (typeof saved.startDate === 'string') setStartDate(saved.startDate);
+    if (typeof saved.endDate === 'string') setEndDate(saved.endDate);
+    if (typeof saved.name === 'string') setName(saved.name);
+    if (typeof saved.phone === 'string') setPhone(saved.phone);
+    if (typeof saved.email === 'string') setEmail(saved.email);
+    if (typeof saved.troop === 'string') setTroop(saved.troop);
+    if (typeof saved.position === 'string') setPosition(saved.position);
+    if (typeof saved.purpose === 'string') setPurpose(saved.purpose);
+    setAgree(saved.agree === true);
+  }, { active: !doneRef });
+
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submitLock.current) return;
     setError('');
     if (empty(venueId) || empty(name) || empty(phone) || empty(startDate) || empty(endDate)) {
       setError('請填妥必填項目（場地、日期時間、姓名、電話）。');
@@ -58,15 +79,21 @@ export default function VenuePage() {
       setError('請先閱讀並同意借用規定。');
       return;
     }
+    if (!confirmSubmit(
+      `確認提交借用申請？\n\n時段：${startDate.replace('T', ' ')} → ${endDate.replace('T', ' ')}\n聯絡人：${name}（${phone}）\n${email ? `電郵：${email}\n` : ''}${purpose ? `用途：${purpose}\n` : ''}\n提交後區會會喺管理系統跟進，批核結果會寄到你所填嘅電郵。`,
+    )) return;
 
     const meta = getSubmissionMeta(event.currentTarget, startedAt.current);
+    submitLock.current = true;
     setBusy(true);
     const result = await api.submitVenueRequest(
-      { venueId, startDate, endDate, name, phone, email, troop, position, purpose },
+      { venueId, startDate, endDate, name, phone, email, troop, position, purpose, agreeRules: agree },
       meta,
     );
+    submitLock.current = false;
     setBusy(false);
     if (result.ok && result.data) {
+      guard.clearDraft();
       setDoneRef(result.data.refCode || '已提交');
       window.scrollTo(0, 0);
     } else {
@@ -83,7 +110,7 @@ export default function VenuePage() {
           申請編號：<b style={{ color: '#003366' }}>{doneRef}</b>
         </p>
         <p style={{ color: '#64748b', fontSize: 13, marginTop: 10 }}>
-          提交並不等於批核完成；區會會喺管理系統跟進。如需查詢，請提供以上編號。
+          提交並不等於批核完成；區會會喺管理系統跟進。批核結果及入場密碼會寄到你所填嘅電郵；如需查詢，請提供以上編號。
         </p>
         <div style={{ marginTop: 20 }}>
           <Link href={withDistrict('/')} className="btn-ghost">返回首頁</Link>
@@ -98,11 +125,11 @@ export default function VenuePage() {
       <h1 className="page-title">🏛 借用區總部</h1>
       <p className="page-sub">先用 Teamup 查看區總部使用情況，再於同一頁填寫借用申請。</p>
 
-      <TeamupCalendar />
+      <TeamupCalendar url={teamupBookingUrl} />
 
       <section className="panel" style={{ borderLeft: '4px solid #1565c0' }}>
         <h2>📋 借用規定</h2>
-        <div style={{ fontSize: 13, whiteSpace: 'pre-line', lineHeight: 1.9 }}>{VENUE_RULES}</div>
+        <div style={{ fontSize: 13, whiteSpace: 'pre-line', lineHeight: 1.9 }}>{venueRules}</div>
         <div className="agree-rules">
           詳細守則（內建於本平台）：
           <Link href={withDistrict('/rules/venue')}>借場規則及程序</Link> ·
@@ -121,6 +148,10 @@ export default function VenuePage() {
             <div className="fixed-venue">載入區總部資料中…</div>
           ) : loadError ? (
             <div className="err" style={{ marginBottom: 0 }}>{loadError}</div>
+          ) : venues.length === 0 ? (
+            <div className="empty" style={{ padding: '22px 18px', textAlign: 'left' }}>
+              區會尚未開放場地借用，請稍後再試；如有疑問可先聯絡區會。
+            </div>
           ) : (
             <div className="fixed-venue">
               <span className="fixed-venue-icon">🏛</span>
@@ -158,6 +189,7 @@ export default function VenuePage() {
           <div className="field">
             <label>電郵</label>
             <input type="email" value={email} maxLength={254} onChange={(event) => setEmail(event.target.value)} />
+            <p className="helptext">批核結果及入場密碼會寄到這個電郵，建議填寫。</p>
           </div>
           <div className="field">
             <label>旅團</label>

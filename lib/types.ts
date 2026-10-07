@@ -92,3 +92,34 @@ export interface Announcement {
   /** 'info' | 'warning' | 'important' — 控制顯示顏色 */
   level: 'info' | 'warning' | 'important';
 }
+
+/** 活動知會（公開欄位；領袖聯絡資料唔會經 member proxy 回傳） */
+export interface ActivityNotice {
+  id: string;
+  refCode: string;
+  year: string;
+  section: string;
+  nature: string;
+  troop: string;
+  activityName: string;
+  startDateTime: string;
+  endDateTime: string;
+  location: string;
+  membersCount: number;
+  leadersCount: number;
+  parentsCount: number;
+  submittedAt: string;
+}
+
+/** 區系統公開設定（getPublicInfo；動態文字唯一來源） */
+export interface PublicInfo {
+  districtName: string;
+  districtCode: string;
+  venueRules: string;
+  stockRules: string;
+  troopList: string[];
+  cctvUrl: string;
+  teamupBookingUrl: string;
+  fpsAccountName: string;
+  fpsAccountNumber: string;
+}

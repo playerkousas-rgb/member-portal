@@ -26,11 +26,14 @@
 ```text
 getConfig
 getSystem
+getPublicInfo
 listCourseLinks
 listVenues
 listItems
 listActivityNotices?year=&section=&nature=
 ```
+
+`getPublicInfo` 經 member proxy 後只回傳白名單欄位（`districtName`／`venueRules`／`stockRules`／`troopList`／`cctvUrl`／`teamupBookingUrl`／`fpsAccountName`／`fpsAccountNumber`）；借用規則、旅團清單同 Teamup 網址以區系統 Config 為唯一來源，成員端 hardcoded 內容只作後備。
 
 `listCourseLinks` 不可回傳：
 
@@ -63,9 +66,85 @@ note
   "email": "...",
   "troop": "...",
   "position": "...",
-  "purpose": "..."
+  "purpose": "...",
+  "agreeRules": true
 }
 ```
+
+`agreeRules` 為必填（proxy 會強制檢查）；後台會記入 `VenueBookings`，供審計之用。`venueId` 必須是 `listVenues` 回傳嘅有效場地（後台會核對 `Venues` 表，唔存在會回「場地不存在」）；`Venues` 表未有 active 行時成員端會顯示「尚未開放」而唔可以提交。
+
+### 借場一條龍（成員端只負責提交；其餘全部喺後台 `gs/Code.gs`）
+
+```text
+成員提交 submitVenueRequest
+  → VenueBookings（pending）
+  → Teamup「申請中」子日曆建事件（失敗唔擋收表，warn 回傳）
+  → 職員電郵（Config NOTIFY_STAFF_EMAIL）
+
+職員一鍵批准 approveVenueBooking
+  → 通通鎖（Sciener）限時密碼（借用時段提前／延後 15 分鐘；PWD_MODE=phone4＝電話頭 4 位；撞碼自動重試）
+  → Teamup 事件搬去「確認借用」子日曆，notes 補密碼
+  → 申請人電郵收「已獲批准＋入場密碼」（申請人冇填電郵則跳過）
+
+拒絕／取消 rejectVenueBooking / setVenueBookingStatus
+  → Teamup 拒絕事件（選填子日曆）＋ 申請人電郵
+```
+
+降級設計：通通鎖未設定／建碼失敗 → 自動改用隨機密碼，批核照完成（warn 回傳管理端）；Teamup 未設定 → 照收表。聯調期間可喺 Config 設 `ttlockDisabled=TRUE` 跳過通通鎖。
+
+後台 Config（管理系統 Config 表）所需 key 及來源：
+
+| key | 用途 | 去邊度搵 |
+|---|---|---|
+| `TEAMUP_API_KEY`／`TEAMUP_CALENDAR_KEY`／`TEAMUP_PENDING_SUBCAL_ID`／`TEAMUP_APPROVED_SUBCAL_ID` | Teamup 行事曆 | **已填好**（`getHealthCheck` 已核實 teamupReady／pendingSet／approvedSet 全 true），唔使再理 |
+| `SCIENER_CLIENT_ID`／`SCIENER_CLIENT_SECRET` | 通通鎖開發者應用 | TTLock 開放平台 **open.sciener.com** → 用 TTLock App 同一帳號登入 → 應用管理 → 建立應用（網頁 Web App）→ 攞 Client ID＋Secret。**最快捷徑：舊 `skw-booking` Vercel 專案 → Settings → Environment Variables 有齊 `TTLOCK_*` 五條，直接抄** |
+| `SCIENER_USERNAME`／`SCIENER_PASSWORD` | 管鎖帳號 | TTLock App（即 lock2.sciener.com）嘅登入 email＋密碼——當初設定區總部大門鎖嗰個帳戶（邊個同事管開把鎖就問邊個） |
+| `SCIENER_API_BASE` | API 區域 | 固定填 `https://api.sciener.com`（填咗 `open.sciener.com` Code.gs 會自動改正） |
+| `SCIENER_LOCK_ID` | 大門鎖 ID | 填好頭 4 條之後，管理系統借場審批頁（`/venue-regs`）有**「讀取鎖列表」掣**，一撳列出所有鎖＋Lock ID＋有冇網關；或跑 `node services/skw-booking/get-lock-id.js`。**必須揀「已連接網關：是」嗰把** |
+| `NOTIFY_STAFF_EMAIL` | 新申請職員電郵通知 | 區會電郵地址（可逗號分隔多個） |
+
+驗證方法（唔使將任何 key 貼出嚟）：
+
+1. 借場審批頁撳「讀取鎖列表」→ 列到鎖＝SCIENER_CLIENT_ID／SECRET／USERNAME／PASSWORD 四條正確；
+2. 終極測試：成員系統交一張真申請 → 一鍵批准 → `warn` 欄冇「TTLock 建碼失敗」＋申請人收到密碼電郵＝全線通。
+
+電郵由部署 Apps Script 嘅 Google 帳戶經 `MailApp` 寄出（Apps Script 免費額度：消費帳戶每日 100 封），唔使額外 SMTP 設定。
+
+### 由舊 skw-booking（Vercel）搬 key 過來嘅對照
+
+主 Sheet **Config 分頁**係「一列 key＝一個設定」（key 欄＋value 欄），直接喺 Google Sheet 填；Config 係 runtime 讀，**改完唔使重新部署 Web App**。舊名 `ttlock*` 同新名 `SCIENER_*` 都認得（`cfgFirst_` 自動 fallback）：
+
+| 舊 Vercel 環境變數（skw-booking） | Config 表 key（任揀一個） | 備註 |
+|---|---|---|
+| `TTLOCK_CLIENT_ID` | `SCIENER_CLIENT_ID` 或 `ttlockClientId` | |
+| `TTLOCK_CLIENT_SECRET` | `SCIENER_CLIENT_SECRET` 或 `ttlockClientSecret` | |
+| `TTLOCK_USERNAME` | `SCIENER_USERNAME` 或 `ttlockUsername` | TTLock App 登入 email |
+| `TTLOCK_PASSWORD` | `SCIENER_PASSWORD` 或 `ttlockPassword` | |
+| `TTLOCK_LOCK_ID` | `SCIENER_LOCK_ID` 或 `ttlockLockId` | 亦可填喺場地列 `scienerLockId` |
+| `TTLOCK_API_BASE` | `SCIENER_API_BASE` 或 `ttlockApiBase` | 唔填預設 `https://api.sciener.com`（同 `api.ttlock.com` 同一後端；帳號喺 eu／cn 區先要改） |
+| （新） | `PWD_MODE` | 預設 `phone4`＝電話頭 4 位（**4 位碼係得嘅**——區方幫領袖開碼一直都用 4 位；舊 skw-booking 筆記「4 位會被拒」實為撞碼被拒嘅誤診，TTLock 拒嘅係同鎖上 active 重複密碼，唔係長度）。維持 `phone4` 唔使改 |
+
+### 電話密碼雙位制（後台需套用 `docs/backend-venue-passcode.patch`）
+
+區方實戰方案（補丁已寫好，並用模擬 Sciener 鎖做過完整 E2E 驗證）：
+
+- 第一段借用＝**電話頭 4 位**；第二段＝**電話尾 4 位**——領袖記自己電話就記到密碼，唔使睇電郵；
+- 建碼候選次序：頭4 → 尾4 → 頭4+1…（撞碼後備）；邊個先批核，邊個攞頭4；
+- **同一電話同時最多兩段借用**（pending 或 approved 而時段未完結）——因為一個人只有兩個密碼位；時段完結＋15 分鐘（密碼過期）之後個位自動釋放；
+- 第三段提交會被拒：「這個電話號碼同時最多兩段借用時間（密碼位：電話頭4位＋尾4位）；請等現有借用時段完結或取消後再申請。」
+
+實測結果（mock 後台＋模擬鎖 `docs/backend-mock-ttlock-sim.patch`）：陳大文 91234567 第一段→密碼 **9123**、第二段→**4567**；黃小芬 91239999（同陳大文撞頭4位）→**9999**（自己尾4位）；同一電話第三段→正確拒收；三個申請人電郵各收到正確密碼。
+
+套用方法（scout-district-portal 一側）：`git apply docs/backend-venue-passcode.patch`（或照 patch 內容手動改 `gs/Code.gs` 三處：`createTtlockPasscode_` 改候選制、新增四個 helper、`submitVenueRequest_` 加兩段上限檢查）→ 開 Apps Script 編輯器貼上新 `Code.gs` → **部署 → 管理部署 → 編輯 → 新版本**。⚠️ 改 code 必須重新部署 Web App 先生效（改 Config 則唔使）。
+
+### 界線：成員系統唔會、亦唔使連通通鎖
+
+通通鎖（Sciener）純粹係**區系統（Apps Script）↔ 鎖**之間嘅事：所有 `SCIENER_*`／`ttlock*` key 只存喺主 Sheet Config 分頁，成員系統（member-portal）由頭到尾唔掂鎖、唔存任何鎖 key。成員唯一接觸到密碼嘅途徑係批核後嘅電郵。所以開通可以分兩步走：
+
+- **Phase 1（唔使任何 key，即刻開通）**：merge member-portal PR → `Venues` 表加場地 → 成員即刻可以網上交表（收表上線）。審批暫時用「**✅ 確認（唔設鎖）**」（`confirmVenueBooking`：只改狀態＋Teamup，**唔會寄密碼電郵**），門鎖密碼照舊由職員人手處理——同多年做法一樣。
+- **Phase 2（執齊 key 先做）**：Config 貼 `SCIENER_*` 五條＋套用雙位制補丁＋Apps Script 出新版本 →「一鍵批准」先會自動建碼＋寄密碼電郵。
+
+⚠️ **Phase 1 期間千祈唔好撳「一鍵批准」**：SCIENER 未設定時，佢會 fallback 隨機密碼並**照樣寄電郵俾申請人——嗰個密碼係冇寫入鎖嘅，開唔到門**。（一鍵批准需 DDC 或以上；「確認（唔設鎖）」一般有 venue 權限就撳得到。）
 
 ### `submitStockRequest`（舊版單項相容）
 
@@ -245,3 +324,20 @@ v4.18.0 起區後台 `submitCourseReg` 將報名表**全部欄位**轉發去訓�
 - 公開報名照舊只憑 `courseId`（hub 班＝公開課程ID `crs_xxx`），區後台自動改走 hub 公開 `addReg`
   （write-only、唔送 apiKey／fileId），成員端唔使分別新舊制。
 - 對接合約詳見 CourseHub `docs/API.md`「addReg 報名欄位」及區後台 `docs/member-gs-handshake.md`。
+
+## Scout Admin 統一回報（成員端 ↔ scout-admin，唔經主 Code.gs）
+
+`app/layout.tsx` 載入 `https://scout-admin-blue.vercel.app/widget.js`（`data-app="成員系統"`），
+成員喺任何頁面右下角都可以遞交「問題回報／意見回饋」：
+
+- **唔關主 Code.gs 事**：payload 直接送 Scout Admin 自己嘅 Apps Script 接收端（統一回報格式 v1），
+  入區會既有嘅問題回報／意見回饋工作表，`來源APP` 欄會存「成員系統」；
+- 免 API key、免登入、可匿名；本站 `/api/proxy` 完全唔參與；
+- 「成員系統」係未登記來源——後台照收照顯示（🔹 原樣名稱）；想變正式膠囊，
+  喺 scout-admin `SOURCE_ALIASES`／`SOURCE_APPS` 加一行即可（可選，唔影響運作）。
+
+## 成員端防呆（本站行為，唔需要後台配合）
+
+借場／借物資／活動知會／訓練班報名四張表（`lib/useFormGuard.ts`）：草稿自動保存（localStorage
+`mp:draft:*`，大圖自動剔除防配額爆）、離開頁面提示、草稿一鍵回復、提交前確認清單、
+`submitLock` 防雙擊、成功自動清草稿。全部係瀏覽器端行為，後台零改動。
