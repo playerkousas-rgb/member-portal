@@ -33,7 +33,7 @@ listItems
 listActivityNotices?year=&section=&nature=
 ```
 
-`getPublicInfo` 經 member proxy 後只回傳白名單欄位（`districtName`／`venueRules`／`stockRules`／`troopList`／`cctvUrl`／`teamupBookingUrl`／`fpsAccountName`／`fpsAccountNumber`）；借用規則、旅團清單同 Teamup 網址以區系統 Config 為唯一來源，成員端 hardcoded 內容只作後備。
+`getPublicInfo` 經 member proxy 後只回傳白名單欄位（`districtName`／`venueRules`／`stockRules`／`troopList`／`cctvUrl`／`teamupBookingUrl`／`teamupReadOnlyUrl`／`fpsAccountName`／`fpsAccountNumber`）；借用規則、旅團清單同 Teamup 網址以區系統 Config 為唯一來源，成員端 hardcoded 內容只作後備。
 
 `listCourseLinks` 不可回傳：
 
@@ -89,6 +89,23 @@ note
 拒絕／取消 rejectVenueBooking / setVenueBookingStatus
   → Teamup 拒絕事件（選填子日曆）＋ 申請人電郵
 ```
+
+#### 成員端 Teamup 月曆：唯讀嵌入＋單一申請入口（方案 1）
+
+- 成員端上方月曆**只嵌入「唯讀（Read-only）」分享連結**：優先取 Config `TEAMUP_READONLY_URL`
+  （`getPublicInfo` → `teamupReadOnlyUrl`），未設定時向後兼容 `TEAMUP_BOOKING_URL`
+  （同樣必須係 Read-only 連結），兩者皆空時先用成員端內建後備連結。
+- Teamup 連結權限係**唯一寫入邊界**：Read-only 連結只能檢視，點擊日期唔會開啟可填寫嘅
+  Teamup Form；URL 參數只控制外觀（隱藏 menu／search／sidepanel 等），**冇任何參數可以將
+  Add-only／Modify 連結降格做唯讀**。可編輯連結唔可以再喺成員端使用。
+- 前端**唔存、亦唔暴露** `TEAMUP_API_KEY`／`TEAMUP_CALENDAR_KEY` 等任何 Teamup 憑證；
+  瀏覽器對 Teamup 只有 iframe 唯讀讀取，冇任何直接寫入呼叫。
+- 唯一申請入口係下方成員表格 → member proxy（嚴格 action allowlist）→ `submitVenueRequest`
+  → `VenueBookings`（pending）→ GS 用 server 端 key 建**藍色「申請中」**事件；職員批核後
+  同一事件轉去「確認借用」子日曆（**轉紅**）。唔存在、亦唔可以新增第二條獨立 Teamup 申請流程。
+- 區系統操作（一次性）：Teamup → Settings → Sharing → Create Link → 權限選 **Read-only**
+  （或 Read-only, no details）→ 將連結貼入主 Sheet Config `TEAMUP_READONLY_URL`；
+  舊嘅可編輯連結應降權或停用。Config 係 runtime 讀，改完唔使重新部署 Web App。
 
 降級設計：通通鎖未設定／建碼失敗 → 自動改用隨機密碼，批核照完成（warn 回傳管理端）；Teamup 未設定 → 照收表。聯調期間可喺 Config 設 `ttlockDisabled=TRUE` 跳過通通鎖。
 

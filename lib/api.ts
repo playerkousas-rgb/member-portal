@@ -205,6 +205,7 @@ export const api = {
         troopList: troops.filter((t) => typeof t === 'string').map((t) => asString(t)).filter(Boolean),
         cctvUrl: asString(row.cctvUrl),
         teamupBookingUrl: asString(row.teamupBookingUrl),
+        teamupReadOnlyUrl: asString(row.teamupReadOnlyUrl),
         fpsAccountName: asString(row.fpsAccountName),
         fpsAccountNumber: asString(row.fpsAccountNumber),
       },

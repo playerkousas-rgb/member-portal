@@ -33,9 +33,9 @@ export default function VenueRulesPage() {
 
         <h2>丙、手續</h2>
         <ol>
-          <li>申請者應先在「<Link href={withDistrict('/venue')} style={{ color: 'var(--p2)', fontWeight: 700, textDecoration: 'underline' }}>借用區總部</Link>」頁查看內嵌 Teamup 行事曆，了解場地使用情況。</li>
-          <li>借用旅團或其代理須先於行事曆上輸入相關資料（旅團及活動名稱、參加人數、負責領袖姓名、職位及負責領袖電話）。</li>
-          <li>收到申請後，筲箕灣區行政部會審視有關申請，若申請獲批，會將行事曆上該申請由「申請借用區總部」轉為「確認借用區總部」。</li>
+          <li>申請者應先在「<Link href={withDistrict('/venue')} style={{ color: 'var(--p2)', fontWeight: 700, textDecoration: 'underline' }}>借用區總部</Link>」頁查看內嵌的唯讀 Teamup 行事曆，了解場地使用情況；月曆只供查看，申請人唔需要亦唔可以直接喺 Teamup 輸入或修改事件。</li>
+          <li>借用旅團或其代理須於同一頁嘅借用申請表輸入相關資料（旅團及活動名稱、參加人數、負責領袖姓名、職位及負責領袖電話）並遞交；區會收到後先會喺行事曆建立對應嘅「申請借用區總部」事件。</li>
+          <li>筲箕灣區行政部會審視有關申請，若申請獲批，會將行事曆上同一事件由「申請借用區總部」轉為「確認借用區總部」。</li>
           <li>最早可於活動前三個月遞交申請。</li>
           <li>最遲須於活動前兩星期遞交申請。</li>
           <li>同一旅團只能同時遞交兩個時段的借用申請。</li>

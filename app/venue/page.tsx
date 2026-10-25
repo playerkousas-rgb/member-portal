@@ -13,7 +13,7 @@ const empty = (value: string) => !value.trim();
 
 export default function VenuePage() {
   const { withDistrict } = useDistrict();
-  const { venueRules, teamupBookingUrl } = usePublicInfo();
+  const { venueRules, teamupBookingUrl, teamupReadOnlyUrl } = usePublicInfo();
   const startedAt = useRef(Date.now());
   const submitLock = useRef(false);
   const [venues, setVenues] = useState<Venue[]>([]);
@@ -123,9 +123,12 @@ export default function VenuePage() {
     <>
       <Link href={withDistrict('/')} className="backlink">← 返回服務首頁</Link>
       <h1 className="page-title">🏛 借用區總部</h1>
-      <p className="page-sub">先用 Teamup 查看區總部使用情況，再於同一頁填寫借用申請。</p>
+      <p className="page-sub">
+        上方 Teamup 月曆為唯讀模式，只供查看區總部使用情況；請喺同一頁下方表格遞交借用申請，
+        月曆事件由區會統一建立，唔需要亦唔可以直接喺 Teamup 新增。
+      </p>
 
-      <TeamupCalendar url={teamupBookingUrl} />
+      <TeamupCalendar readOnlyUrl={teamupReadOnlyUrl} url={teamupBookingUrl} />
 
       <section className="panel" style={{ borderLeft: '4px solid #1565c0' }}>
         <h2>📋 借用規定</h2>
