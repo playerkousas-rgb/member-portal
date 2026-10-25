@@ -87,7 +87,7 @@ export default function TeamupCalendar({ readOnlyUrl, url }: TeamupCalendarProps
             📅 區總部場地行事曆
             <span className="calendar-readonly-badge">🔒 唯讀</span>
           </h2>
-          <p>查看心儀日期有冇其他申請或已確認借用；月曆只供查看，唔可以喺月曆新增或修改事件。</p>
+          <p>查看心儀日期有冇其他申請或已確認借用；月曆只供查看，唔可以喺月曆新增或修改事件。選定時段後，請拉落下方「提交借用申請」表格登記，區會先會喺月曆建立對應事件。</p>
         </div>
         <a className="btn-ghost" href={openUrl} target="_blank" rel="noopener noreferrer">
           新視窗開啟 ↗
