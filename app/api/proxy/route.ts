@@ -30,7 +30,8 @@ const GET_PARAM_WHITELIST = ['year', 'section', 'nature'];
 
 const POST_FIELDS: Record<string, string[]> = {
   submitVenueRequest: [
-    'venueId', 'startDate', 'endDate', 'name', 'phone', 'email', 'troop', 'position', 'purpose', 'agreeRules',
+    'venueId', 'startDate', 'endDate', 'name', 'phone', 'email', 'troop', 'position',
+    'activityName', 'attendeeCount', 'purpose', 'agreeRules',
   ],
   submitStockRequest: [
     'itemId', 'qty', 'purpose', 'borrowDate', 'returnDate', 'name', 'phone', 'email', 'troop', 'position', 'agreeRules',
@@ -56,7 +57,7 @@ const POST_FIELDS: Record<string, string[]> = {
 };
 
 const REQUIRED_FIELDS: Record<string, string[]> = {
-  submitVenueRequest: ['venueId', 'startDate', 'endDate', 'name', 'phone'],
+  submitVenueRequest: ['venueId', 'startDate', 'endDate', 'name', 'phone', 'activityName', 'attendeeCount'],
   submitStockRequest: ['itemId', 'qty', 'borrowDate', 'returnDate', 'name', 'phone'],
   submitStockBatchRequest: ['borrowDate', 'returnDate', 'name', 'phone'],
   submitActivityNotice: ['section', 'nature', 'troop', 'activityName', 'startDateTime', 'endDateTime', 'location', 'leaderName', 'leaderPhone'],
@@ -364,6 +365,13 @@ function validateSubmission(action: string, body: JsonRecord): string {
   // 借場同樣必須同意守則（後台會將 agreeRules 記入 VenueBookings，方便審計）。
   if (action === 'submitVenueRequest' && body.agreeRules !== true) {
     return '請先閱讀並同意借用規定。';
+  }
+  if (action === 'submitVenueRequest') {
+    const attendees = number(body.attendeeCount);
+    if (!Number.isInteger(attendees) || attendees < 1 || attendees > 9999) {
+      return '參加人數必須係 1 至 9999 之間嘅整數。';
+    }
+    if (text(body.activityName).length > 120) return '部分欄位內容過長。';
   }
   if (action === 'submitCourseReg') {
     const receipt = text(body.receiptDataUrl);

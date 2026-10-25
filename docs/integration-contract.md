@@ -66,12 +66,20 @@ note
   "email": "...",
   "troop": "...",
   "position": "...",
+  "activityName": "...",
+  "attendeeCount": 30,
   "purpose": "...",
   "agreeRules": true
 }
 ```
 
 `agreeRules` 為必填（proxy 會強制檢查）；後台會記入 `VenueBookings`，供審計之用。`venueId` 必須是 `listVenues` 回傳嘅有效場地（後台會核對 `Venues` 表，唔存在會回「場地不存在」）；`Venues` 表未有 active 行時成員端會顯示「尚未開放」而唔可以提交。
+
+`activityName`（活動名稱，字串，必填，≤120 字）同 `attendeeCount`（參加人數，必填正整數 1–9999）由成員端 v1.1 起提交，proxy 白名單及伺服器端驗證已對齊。**成員端只負責提交，瀏覽器唔會直接寫 Teamup**；後台 `Code.gs` 需配合：
+
+1. 將 `activityName`／`attendeeCount` 連同現有欄位一併記入 `VenueBookings`；
+2. 建立 Teamup「申請中」事件時，將姓名／職位同 `attendeeCount` 寫入 Teamup 自訂欄位（custom fields）——需先喺 Teamup 設定取得該兩個自訂欄位嘅識別碼／欄位 key，存入主 Sheet Config（例如 `TEAMUP_FIELD_LEADER_KEY`／`TEAMUP_FIELD_ATTENDEE_KEY`），**唔需要、亦唔可以將 Teamup API Token 交予成員端**；
+3. 舊版後台未識別新欄位時會忽略佢，唔影響現有收表（向後兼容），但新欄位要等後台更新先會入 Sheet／Teamup。
 
 ### 借場一條龍（成員端只負責提交；其餘全部喺後台 `gs/Code.gs`）
 
