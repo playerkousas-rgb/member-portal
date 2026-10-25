@@ -14,8 +14,8 @@ export default function GuidePage() {
       <section className="panel">
         <h2>🏛 借用場地</h2>
         <ol style={{ paddingLeft: 20, lineHeight: 2, fontSize: 13.5 }}>
-          <li>進入借場頁後，先在 Teamup 行事曆查看區總部使用情況。</li>
-          <li>選擇合適時段，填寫用途及聯絡資料，再提交申請。</li>
+          <li>進入借場頁後，先在上方唯讀 Teamup 行事曆查看區總部使用情況（月曆只供查看，唔可以喺月曆新增或修改事件）。</li>
+          <li>選擇合適時段，喺下方表格填寫用途及聯絡資料，再提交申請；月曆事件由區會職員統一建立。</li>
           <li>提交唔代表已獲批准；請等區會跟進。</li>
         </ol>
       </section>

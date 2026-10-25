@@ -26,6 +26,7 @@ export function usePublicInfo() {
     stockRules: info?.stockRules || STOCK_RULES,
     troopList: info?.troopList?.length ? info.troopList : TROOP_LIST,
     teamupBookingUrl: info?.teamupBookingUrl || '',
+    teamupReadOnlyUrl: info?.teamupReadOnlyUrl || '',
     cctvUrl: info?.cctvUrl || '',
   };
 }

@@ -220,6 +220,8 @@ function sanitizeGet(action: string, data: unknown): unknown {
       troopList: troops.filter((t) => typeof t === 'string').slice(0, 300).map((t) => text(t).slice(0, 40)),
       cctvUrl: text(row.cctvUrl).slice(0, 300),
       teamupBookingUrl: text(row.teamupBookingUrl).slice(0, 300),
+      // 唯讀分享連結（TEAMUP_READONLY_URL）：成員端月曆只可嵌入唯讀連結，唔可以用可編輯連結。
+      teamupReadOnlyUrl: text(row.teamupReadOnlyUrl).slice(0, 300),
       fpsAccountName: text(row.fpsAccountName).slice(0, 80),
       fpsAccountNumber: text(row.fpsAccountNumber).slice(0, 40),
     };

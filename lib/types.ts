@@ -120,6 +120,8 @@ export interface PublicInfo {
   troopList: string[];
   cctvUrl: string;
   teamupBookingUrl: string;
+  /** Config TEAMUP_READONLY_URL：專為公開嵌入而設嘅 Teamup 唯讀分享連結（首選）。 */
+  teamupReadOnlyUrl: string;
   fpsAccountName: string;
   fpsAccountNumber: string;
 }

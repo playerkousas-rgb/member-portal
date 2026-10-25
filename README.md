@@ -22,6 +22,15 @@
 
 `/course` 只係舊網址，會轉到 `/training`；`/calendar` 係舊網址，會轉到 `/venue#availability`。
 
+### 借場月曆：唯讀 Teamup 嵌入（單一申請入口）
+
+`/venue` 上方月曆**只供查看**，成員唔可以喺月曆新增、修改或提交 Teamup 事件，點擊日期亦唔會開出 Teamup Form：
+
+- 月曆只嵌入 Teamup **Read-only 分享連結**：優先用 Config `TEAMUP_READONLY_URL`（`getPublicInfo` → `teamupReadOnlyUrl`），未設定時向後兼容 `TEAMUP_BOOKING_URL`（同樣須為 Read-only 連結）。Teamup 連結權限係唯一寫入邊界，URL 參數只可以改外觀；可編輯（Add-only／Modify）連結唔可以喺成員端使用。
+- 前端**唔存、亦唔暴露**任何 Teamup API Token／私人憑證（`TEAMUP_API_KEY` 只存喺區管理系統 Config）；瀏覽器對 Teamup 只有 iframe 唯讀讀取，冇直接寫入呼叫。
+- 唯一申請入口係下方成員表格 → `/api/proxy` → `submitVenueRequest` 寫入區管理系統；區管理 GS 先建立藍色「申請中」Teamup 事件，職員批核後同一事件轉紅（「確認借用」）。唔存在第二條獨立 Teamup 申請流程。
+- 區系統一次性設定：Teamup → Settings → Sharing → Create Link → 權限選 **Read-only** → 連結貼入 Config `TEAMUP_READONLY_URL`（runtime 生效，唔使重新部署）。
+
 ## 品牌及圖示
 
 全站圖示用**香港童軍總會筲箕灣區徽號**（與 [scout-circulars](https://github.com/playerkousas-rgb/scout-circulars)

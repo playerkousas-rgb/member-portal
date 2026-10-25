@@ -10,7 +10,7 @@ const ANNOUNCEMENT_URL = 'https://scout-circulars.vercel.app/';
 const SERVICES = [
   {
     href: '/venue', icon: '🏛', title: '借用區總部',
-    desc: '先用 Teamup 查看區總部行事曆，再填寫場地借用申請（內置借場守則及指引）。',
+    desc: '先用唯讀 Teamup 月曆查看場地使用情況，再用表格遞交場地借用申請（內置借場守則及指引）。',
     tag: '查看／提交', external: false,
   },
   {
