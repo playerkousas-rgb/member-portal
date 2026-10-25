@@ -27,6 +27,8 @@ export default function VenuePage() {
   const [email, setEmail] = useState('');
   const [troop, setTroop] = useState('');
   const [position, setPosition] = useState('');
+  const [activityName, setActivityName] = useState('');
+  const [attendeeCount, setAttendeeCount] = useState('');
   const [purpose, setPurpose] = useState('');
   const [agree, setAgree] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -48,8 +50,8 @@ export default function VenuePage() {
 
   // 防呆：草稿自動保存＋離開提示（詳見 lib/useFormGuard.ts）
   const snapshot = useMemo(
-    () => ({ startDate, endDate, name, phone, email, troop, position, purpose, agree }),
-    [startDate, endDate, name, phone, email, troop, position, purpose, agree],
+    () => ({ startDate, endDate, name, phone, email, troop, position, activityName, attendeeCount, purpose, agree }),
+    [startDate, endDate, name, phone, email, troop, position, activityName, attendeeCount, purpose, agree],
   );
   const guard = useFormGuard('mp:draft:venue', snapshot, (saved) => {
     if (typeof saved.startDate === 'string') setStartDate(saved.startDate);
@@ -59,6 +61,8 @@ export default function VenuePage() {
     if (typeof saved.email === 'string') setEmail(saved.email);
     if (typeof saved.troop === 'string') setTroop(saved.troop);
     if (typeof saved.position === 'string') setPosition(saved.position);
+    if (typeof saved.activityName === 'string') setActivityName(saved.activityName);
+    if (typeof saved.attendeeCount === 'string') setAttendeeCount(saved.attendeeCount);
     if (typeof saved.purpose === 'string') setPurpose(saved.purpose);
     setAgree(saved.agree === true);
   }, { active: !doneRef });
@@ -67,8 +71,14 @@ export default function VenuePage() {
     event.preventDefault();
     if (submitLock.current) return;
     setError('');
-    if (empty(venueId) || empty(name) || empty(phone) || empty(startDate) || empty(endDate)) {
-      setError('請填妥必填項目（場地、日期時間、姓名、電話）。');
+    if (empty(venueId) || empty(name) || empty(phone) || empty(startDate) || empty(endDate)
+      || empty(activityName) || empty(attendeeCount)) {
+      setError('請填妥必填項目（場地、日期時間、姓名、電話、活動名稱、參加人數）。');
+      return;
+    }
+    const attendees = Number(attendeeCount);
+    if (!Number.isInteger(attendees) || attendees < 1 || attendees > 9999) {
+      setError('參加人數必須係 1 至 9999 之間嘅整數。');
       return;
     }
     if (new Date(endDate).getTime() <= new Date(startDate).getTime()) {
@@ -80,14 +90,17 @@ export default function VenuePage() {
       return;
     }
     if (!confirmSubmit(
-      `確認提交借用申請？\n\n時段：${startDate.replace('T', ' ')} → ${endDate.replace('T', ' ')}\n聯絡人：${name}（${phone}）\n${email ? `電郵：${email}\n` : ''}${purpose ? `用途：${purpose}\n` : ''}\n提交後區會會喺管理系統跟進，批核結果會寄到你所填嘅電郵。`,
+      `確認提交借用申請？\n\n時段：${startDate.replace('T', ' ')} → ${endDate.replace('T', ' ')}\n活動：${activityName}（${attendees} 人）\n聯絡人：${name}（${phone}）\n${email ? `電郵：${email}\n` : ''}${purpose ? `用途：${purpose}\n` : ''}\n提交後區會會喺管理系統跟進，批核結果會寄到你所填嘅電郵。`,
     )) return;
 
     const meta = getSubmissionMeta(event.currentTarget, startedAt.current);
     submitLock.current = true;
     setBusy(true);
     const result = await api.submitVenueRequest(
-      { venueId, startDate, endDate, name, phone, email, troop, position, purpose, agreeRules: agree },
+      {
+        venueId, startDate, endDate, name, phone, email, troop, position,
+        activityName, attendeeCount: attendees, purpose, agreeRules: agree,
+      },
       meta,
     );
     submitLock.current = false;
@@ -197,6 +210,26 @@ export default function VenuePage() {
           <div className="field">
             <label>旅團</label>
             <input value={troop} maxLength={80} onChange={(event) => setTroop(event.target.value)} placeholder="例：港島第82旅" />
+          </div>
+        </div>
+        <div className="frow">
+          <div className="field">
+            <label>活動名稱 <span className="req">*</span></label>
+            <input value={activityName} maxLength={120} onChange={(event) => setActivityName(event.target.value)} placeholder="例：第82旅秋季旅集會" />
+          </div>
+          <div className="field">
+            <label>參加人數 <span className="req">*</span></label>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={9999}
+              step={1}
+              value={attendeeCount}
+              onChange={(event) => setAttendeeCount(event.target.value)}
+              placeholder="例：30"
+            />
+            <p className="helptext">請填正整數（1–9999），區會會連同申請寫入 Teamup 事件。</p>
           </div>
         </div>
         <div className="frow">
