@@ -111,7 +111,26 @@ export interface ActivityNotice {
   submittedAt: string;
 }
 
-/** 區內旅團名錄（listDistrictTroops；只含公開欄位，內部備註／支部團數唔會經 proxy 流出） */
+/** 支部代碼（對照 GS VISIT_SECTIONS） */
+export type TroopSectionKey = 'gh' | 'cub' | 'scout' | 'venture' | 'rover';
+
+/** 一個團（支部單位）嘅公開詳情；對應 GS UnitSections 表一列 */
+export interface DistrictUnit {
+  /** gh／cub／scout／venture／rover */
+  section: string;
+  /** 常規團為 ''；A1／S1＝空／海童軍團 */
+  unitCode: string;
+  /** 童軍團／空童軍團… */
+  label: string;
+  meetingTime: string;
+  /** 集會地點（v4.29.0） */
+  location: string;
+  instagramUrl: string;
+  facebookUrl: string;
+  websiteUrl: string;
+}
+
+/** 區內旅團名錄（listDistrictTroops；只含公開欄位，內部備註唔會經 proxy 流出） */
 export interface DistrictTroop {
   /** 旅號／旅團編號 */
   troop: string;
@@ -119,11 +138,15 @@ export interface DistrictTroop {
   label: string;
   /** 主辦機構 */
   organizer: string;
-  /** 集會時間 */
+  /** 旅層級集會時間（團資料空白時回落用） */
   meetingTime: string;
   instagramUrl: string;
   facebookUrl: string;
   websiteUrl: string;
+  /** 五個支部嘅團數原始字串，例如 { scout: '1+A1' }；舊版後台可能冇提供 */
+  sectionCounts?: Partial<Record<TroopSectionKey, string>>;
+  /** 旗下各團；未維護時由後台按團數自動產生骨架（詳情空白） */
+  units?: DistrictUnit[];
 }
 
 export interface DistrictTroopsDirectory {
