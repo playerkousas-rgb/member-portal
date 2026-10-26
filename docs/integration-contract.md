@@ -54,7 +54,7 @@ leaderEmail
 note
 ```
 
-### `listDistrictTroops`（區內旅團公開名錄，v1.2 起）
+### `listDistrictTroops`（區內旅團公開名錄，v1.2 起；v1.3 延伸旅→團階層）
 
 公開 GET（唔使登入），經 `/api/proxy` allowlist 轉發；API Key 只留喺 Vercel server env，瀏覽器唔會直接呼叫 Apps Script。
 
@@ -64,23 +64,39 @@ note
   "districtName": "筲箕灣區",
   "troops": [
     {
-      "troop": "17",
-      "label": "筲箕灣第十七旅",
-      "organizer": "主辦機構名稱",
-      "meetingTime": "逢星期六 14:00–16:00",
-      "instagramUrl": "https://...",
-      "facebookUrl": "https://...",
-      "websiteUrl": "https://..."
+      "troop": "101",
+      "label": "港島第101旅",
+      "organizer": "筲箕灣東官立中學",
+      "meetingTime": "",
+      "instagramUrl": "",
+      "facebookUrl": "",
+      "websiteUrl": "",
+      "sectionCounts": { "scout": "1+A1", "venture": "1+A1+S1", "rover": "1+A1" },
+      "units": [
+        {
+          "section": "scout", "unitCode": "", "label": "童軍團",
+          "meetingTime": "逢星期六 14:00", "location": "校本部",
+          "instagramUrl": "https://...", "facebookUrl": "", "websiteUrl": ""
+        },
+        {
+          "section": "scout", "unitCode": "A1", "label": "空童軍團",
+          "meetingTime": "", "location": "",
+          "instagramUrl": "", "facebookUrl": "", "websiteUrl": ""
+        }
+      ]
     }
   ]
 }
 ```
 
-- 後台只回 `active=TRUE` 且 `publicVisible=TRUE` 嘅旅團；**唔會回傳**支部團數（`gh/cub/scout/venture/rover`）、內部 `note`、`active`、`publicVisible`、`sections`。
-- proxy 再做欄位白名單（淨係 7 個欄位）同網址驗證：只接受 `http(s)`，`javascript:`／`data:` 等偽連結清空；空字串欄位由前端隱藏，唔顯示空行。
+- 後台只回 `active=TRUE` 且 `publicVisible=TRUE` 嘅旅團同團；**唔會回傳**內部 `note`、`active`、`publicVisible`。
+- 旅層級 7 欄位＋`sectionCounts`（只可含 `gh/cub/scout/venture/rover` 五個 key）＋`units` 巢狀列表；每團淨係 8 個公開欄位（`section/unitCode/label/meetingTime/location/instagramUrl/facebookUrl/websiteUrl`）。
+- `UnitSections` 有維護列時 `units` 由維護資料產生；未維護時 GS 按 `sectionCounts` 自動拆骨架（`1+A1`＝常規團＋空童軍團；A＝空、S＝海），詳情空白，前端回落旅層級資料並標示。
+- proxy 再做兩層白名單同網址驗證：只接受 `http(s)`，`javascript:`／`data:` 等偽連結清空；空字串欄位由前端隱藏，唔顯示空行。
 - 外部連結一律 `target="_blank"` 加 `rel="noopener noreferrer"`。
-- 管理資料由區管理系統 `/visit`（Units 表）維護，成員端只讀，唔提供編輯功能。
+- 管理資料由區管理系統 `/visit`（Units ＋ UnitSections 表，`saveUnitSections` action）維護，成員端只讀，唔提供編輯功能。
 - 異常處理：載入中顯示 spinner、失敗顯示錯誤＋重試、空名單顯示提示；手機版詳情以底部抽屜呈現。
+- 向後相容：舊版 GS（v4.28.x 或之前）只回旅層級 7 欄，前端自動合成單一團条目，UI 唔會壞。
 
 ## 公開 POST actions
 
