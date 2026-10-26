@@ -3,8 +3,10 @@
  * 所有請求經同源 /api/proxy；主 Apps Script API Key 只存在 server env。
  */
 import { resolveDistrictCode } from './district';
+import { sanitizeTroopsDirectory } from './troops';
 import type {
-  Announcement, ApiResult, ActivityNotice, CourseLink, DistrictConfig, Item,
+  Announcement, ApiResult, ActivityNotice, CourseLink, DistrictConfig,
+  DistrictTroopsDirectory, Item,
   PublicInfo, SubmissionMeta, SubmissionResult, SystemState, Venue,
 } from './types';
 
@@ -168,6 +170,13 @@ export const api = {
 
   listAnnouncements: (): Promise<ApiResult<Announcement[]>> =>
     mapList(callGet<unknown[]>('listAnnouncements'), mapAnnouncement),
+
+  // 區內旅團公開名錄：proxy 已做白名單清洗，client 再行同一 sanitizer 做縱深防禦。
+  listDistrictTroops: async (): Promise<ApiResult<DistrictTroopsDirectory>> => {
+    const result = await callGet<unknown>('listDistrictTroops');
+    if (!result.ok || !result.data) return { ok: false, error: result.error };
+    return { ok: true, data: sanitizeTroopsDirectory(result.data) };
+  },
 
   listActivityNotices: (params: { year?: string; section?: string; nature?: string } = {}): Promise<ApiResult<ActivityNotice[]>> =>
     mapList(callGet<unknown[]>('listActivityNotices', params), (value) => {

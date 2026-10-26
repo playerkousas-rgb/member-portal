@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:troops": "node --import ./scripts/tsx-register.mjs scripts/test-troops.ts"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
