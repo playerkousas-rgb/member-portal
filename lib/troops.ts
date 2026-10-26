@@ -3,6 +3,7 @@
  * 後台 listDistrictTroops 已過濾 active/publicVisible 並排除內部備註；
  * proxy 再做一次欄位白名單同網址驗證，縱深防禦。
  * v4.29.0：旅 → 團階層（sectionCounts＋units），向後相容舊版只回旅層級欄位嘅回應。
+ * v4.31.0：只顯示已開設支部；保留 units 缺席（舊 GS）同 units: []（新版無公開團）嘅分別。
  */
 import type { DistrictTroop, DistrictTroopsDirectory, DistrictUnit, TroopSectionKey } from './types';
 
@@ -33,6 +34,13 @@ export const SECTION_META: { key: TroopSectionKey; label: string; emoji: string 
   { key: 'rover', label: '樂行童軍', emoji: '🌟' },
 ];
 
+/** 跟後台 v4.31.0 parseSectionCount_ 對齊，只顯示有已開設團嘅支部。 */
+export function hasOpenSectionCount(value: unknown): boolean {
+  return asText(value).toUpperCase().split(/[^A-Z0-9]+/).some((token) =>
+    /^[AS]\d{1,2}$/.test(token) || (/^\d{1,2}$/.test(token) && Number(token) > 0),
+  );
+}
+
 const SECTION_KEYS = new Set<string>(SECTION_META.map((s) => s.key));
 
 /** 單一團列白名單：公開端只得以下 8 個欄位。 */
@@ -60,6 +68,7 @@ export function sanitizeTroop(value: unknown): DistrictTroop {
     const count = asText(rawCounts[key]).trim().slice(0, 20);
     if (count) sectionCounts[key] = count;
   });
+  const hasUnitsField = Object.prototype.hasOwnProperty.call(row, 'units');
   const units = Array.isArray(row.units)
     ? row.units.map(sanitizeUnit).filter((u) => u.section && (u.label || u.unitCode !== undefined))
     : [];
@@ -72,8 +81,26 @@ export function sanitizeTroop(value: unknown): DistrictTroop {
     facebookUrl: safePublicUrl(row.facebookUrl).slice(0, 500),
     websiteUrl: safePublicUrl(row.websiteUrl).slice(0, 500),
     sectionCounts,
-    units: units.filter((u) => u.section),
+    ...(hasUnitsField ? { units: units.filter((u) => u.section) } : {}),
   };
+}
+
+/**
+ * 新版後台回傳 units: [] 代表目前冇已開設／公開團；只有舊版完全冇 units 欄時先回落旅資料。
+ * 保留呢個差異，避免將新版明確隱藏嘅支部重新顯示成虛構嘅單一團。
+ */
+export function troopUnitsForDisplay(troop: DistrictTroop): DistrictUnit[] {
+  if (Array.isArray(troop.units)) return troop.units;
+  return [{
+    section: '',
+    unitCode: '',
+    label: troop.label || troop.troop,
+    meetingTime: troop.meetingTime,
+    location: '',
+    instagramUrl: troop.instagramUrl,
+    facebookUrl: troop.facebookUrl,
+    websiteUrl: troop.websiteUrl,
+  }];
 }
 
 /** listDistrictTroops 回應嘅伺服器端清洗：欄位白名單＋空列過濾。 */

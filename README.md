@@ -99,21 +99,19 @@ browser（無 API Key）
 
 > 基本 rate limit 唔取代 CDN / WAF 或 Apps Script 端限流；正式上線仍建議加 Turnstile / reCAPTCHA。
 
-## 對接狀態（與 scout-district-portal v4.0.1 核對）
+## 對接狀態（與 scout-district-portal v4.31.0 核對）
 
-管理後台 `gs/Code.gs`（統一後台 v4.0.1）已包含兩個公開 action，合約已全部達成：
+已對照管理系統 MAIN `8bda6bd`（2026-10-26），其 `gs/Code.gs` 最新版本為 v4.31.0。本次只同步成員端公開旅團名錄顯示；未改管理系統程式或部署 Apps Script，線上版本仍應以 `getHealthCheck` 驗證。
 
-1. `GET action=listCourseLinks` ✅
-   - 只回傳 `active=TRUE`、未過 deadline 嘅公開課程欄位；經 `courseLinkPublic_` 清洗，**不會回傳** `scriptExecUrl / scriptApiKey / driveFolderId`。
-2. `POST action=submitCourseReg` ✅
-   - 驗證課程仍開放（含 **deadline 檢查**，v4.0.1 加入）+ quota → 只喺 server 讀每班 Script URL / Key → 轉發 `addReg`（v4.0.1 起**包含 `extra` 附加資料欄位**）→ 回傳 `refCode`；另更新 `filled` 人數、寫入 `Records` 及通知職員。
-3. 每班收表 Script `gs/Code.gs.course.js` 嘅 `addReg` ✅
-   - 驗證、防重複（同電郵）、入數紙存 Drive、回傳 `{ ok: true, refCode }`。
+- 成員系統使用嘅公開 GET／POST actions 均仍由 v4.31.0 支援；`/api/proxy` 維持公開 action allowlist，唔會放行管理、登入或批核 action。
+- `listDistrictTroops` 維持 v1.3 旅→團欄位合約，但 v4.31.0 只回傳已開設支部：`sectionCounts` 省略 0／空白，`units` 排除已關閉支部嘅團。成員頁只顯示有團嘅支部標籤。
+- `units: []` 係新版後台明確表示「目前冇已開設／公開團」；只有舊版回應完全冇 `units` 欄位時，前端先回落到旅層級資料。proxy sanitizer 會保留呢個分別，避免已關閉／隱藏嘅團重新顯示。
+- 課程合約維持不變：`listCourseLinks` 只回傳公開欄位，唔會外洩 `scriptExecUrl / scriptApiKey / driveFolderId`；`submitCourseReg` 由後台檢查 deadline／quota，再 server-side 轉發到每班 Script。
 
 餘下事項：
 
 - 尚未有真實課程，訓練班報名流程未做過端到端實測；待開班後應以「真實課程」行一次報名，確認 `refCode` 回傳及每班 Sheet 收到資料。
-- 部署前提：Vercel 設好 `MEMBER_SKW_APIKEY`，主 `Code.gs` 已部署為「任何人」可執行 Web App，並喺 `Config` 設定 `API_KEY_HASH`（可經 `getHealthCheck` 驗證，此 action 免 API Key；v4.0.1 會回報 `version: 4.0.1`）。
+- 部署前提：Vercel 設好 `MEMBER_SKW_APIKEY`，管理系統主 `Code.gs` 已部署為「任何人」可執行嘅 Web App，並喺 `Config` 設定 `API_KEY_HASH`；可經免 API Key 嘅 `getHealthCheck` 確認線上版本。
 
 ## 本機及 Vercel 設定
 
@@ -135,6 +133,8 @@ API Key 只可放 server env，**不可使用 `NEXT_PUBLIC_` 前綴**。
 ## 驗證
 
 ```bash
+npm run typecheck
+npm run test:troops
 npm run build
 npm audit
 ```

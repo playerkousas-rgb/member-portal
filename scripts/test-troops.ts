@@ -5,9 +5,10 @@
  * 覆蓋：
  *  1. proxy GET allowlist 有 listDistrictTroops，且只含公開唯讀 action
  *  2. sanitizeUnit／sanitizeTroop 欄位白名單（內部欄位 sections/note/active 唔流出）
- *  3. sectionCounts 只限五個支部 key；偽網址清空；異常輸入安全降解
- *  4. unitDetailFields／dialogFields：空欄隱藏、團無資料時回落旅層級
- *  5. TroopDialog SSR：地點欄位、外連 rel="noopener noreferrer"、回落提示、無內部欄位外洩
+ *  3. sectionCounts 只限五個支部 key；v4.31.0 只顯示已開設支部；偽網址清空
+ *  4. units:[] 與舊版缺 units 欄分開處理，避免重新顯示已關閉／隱藏團
+ *  5. unitDetailFields／dialogFields：空欄隱藏、團無資料時回落旅層級
+ *  6. TroopDialog SSR：地點欄位、外連 rel="noopener noreferrer"、回落提示、無內部欄位外洩
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -18,8 +19,8 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import {
-  SECTION_META, safePublicUrl, sanitizeTroop, sanitizeTroopsDirectory, sanitizeUnit,
-  unitDetailFields, troopFallbackFields, dialogFields,
+  hasOpenSectionCount, SECTION_META, safePublicUrl, sanitizeTroop, sanitizeTroopsDirectory, sanitizeUnit,
+  troopUnitsForDisplay, unitDetailFields, troopFallbackFields, dialogFields,
 } from '../lib/troops';
 import TroopDialog from '../components/TroopDialog';
 import type { DistrictTroop, DistrictUnit } from '../lib/types';
@@ -64,6 +65,15 @@ test('safePublicUrl：只接受 http(s)，偽造協議一律清空', () => {
 test('SECTION_META：對齊官網五個支部，順序固定', () => {
   assert.deepEqual(SECTION_META.map((s) => s.key), ['gh', 'cub', 'scout', 'venture', 'rover']);
   assert.deepEqual(SECTION_META.map((s) => s.label), ['小童軍', '幼童軍', '童軍', '深資童軍', '樂行童軍']);
+});
+
+test('v4.31.0 開設支部判斷：零／空白隱藏，常規團、空團及海團顯示', () => {
+  for (const value of ['', ' ', '0', '00', '0+0', null, undefined]) {
+    assert.equal(hasOpenSectionCount(value), false, `${String(value)} 應視為未開設`);
+  }
+  for (const value of ['1', '2', '10', '1+A1', '1+A1+S1', 'A1', 'S1']) {
+    assert.equal(hasOpenSectionCount(value), true, `${value} 應視為已開設`);
+  }
 });
 
 test('sanitizeUnit：只保留 8 個公開欄位，非法支部清走，內部旗標唔流出', () => {
@@ -119,10 +129,29 @@ test('sanitizeTroopsDirectory：上游結構異常都安全降解，空列被過
   });
   assert.equal(dir.districtCode, 'SKW');
   assert.equal(dir.troops.length, 2);
-  assert.deepEqual(dir.troops[0].units, []);
+  assert.deepEqual(dir.troops[0].units, [], '新版明確帶 units 欄但格式無效時，不應合成假團');
+  assert.equal(Object.hasOwn(dir.troops[1], 'units'), false, '舊版回應缺 units 欄時保留缺席狀態');
   assert.equal(dir.troops[1].sectionCounts?.cub, '2');
   assert.deepEqual(sanitizeTroopsDirectory(null).troops, []);
   assert.deepEqual(sanitizeTroopsDirectory({}).troops, []);
+});
+
+test('v4.31.0 空團語義：新版 units: [] 不合成假團；舊版缺欄先回落旅層級', () => {
+  const latest = sanitizeTroop({
+    troop: '1745', label: '港島第1745旅', meetingTime: '星期六', units: [],
+  });
+  assert.deepEqual(latest.units, []);
+  assert.deepEqual(troopUnitsForDisplay(latest), []);
+
+  const legacy = sanitizeTroop({
+    troop: '17', label: '港島第17旅', meetingTime: '逢星期六 14:00',
+  });
+  assert.equal(Object.hasOwn(legacy, 'units'), false);
+  const fallback = troopUnitsForDisplay(legacy);
+  assert.equal(fallback.length, 1);
+  assert.equal(fallback[0].section, '');
+  assert.equal(fallback[0].label, '港島第17旅');
+  assert.equal(fallback[0].meetingTime, '逢星期六 14:00');
 });
 
 test('欄位生成：空欄唔顯示；團無獨立資料時 dialogFields 回落旅層級並標示', () => {

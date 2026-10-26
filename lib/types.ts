@@ -145,7 +145,9 @@ export interface DistrictTroop {
   websiteUrl: string;
   /** 五個支部嘅團數原始字串，例如 { scout: '1+A1' }；舊版後台可能冇提供 */
   sectionCounts?: Partial<Record<TroopSectionKey, string>>;
-  /** 旗下各團；未維護時由後台按團數自動產生骨架（詳情空白） */
+  /**
+   * 旗下各團。v4.29+ 明確回傳 [] 代表沒有已開設／公開團；舊版 GS 不帶此欄，前端才回落旅層級資料。
+   */
   units?: DistrictUnit[];
 }
 

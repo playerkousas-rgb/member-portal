@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import TroopDialog from '@/components/TroopDialog';
-import { SECTION_META } from '@/lib/troops';
+import { hasOpenSectionCount, SECTION_META, troopUnitsForDisplay } from '@/lib/troops';
 import { api } from '@/lib/api';
 import { useDistrict } from '@/lib/useDistrict';
 import type { DistrictTroop, DistrictTroopsDirectory, DistrictUnit, TroopSectionKey } from '@/lib/types';
@@ -10,26 +10,6 @@ import type { DistrictTroop, DistrictTroopsDirectory, DistrictUnit, TroopSection
 interface Selection {
   troop: DistrictTroop;
   unit: DistrictUnit;
-}
-
-/** 舊版後台（v4.28.x 或之前）冇 units 陣列：用旅層級欄位合成一個單位，保持同一 UI。 */
-function legacyUnit(troop: DistrictTroop): DistrictUnit {
-  return {
-    section: '',
-    unitCode: '',
-    label: troop.label || troop.troop,
-    meetingTime: troop.meetingTime,
-    location: '',
-    instagramUrl: troop.instagramUrl,
-    facebookUrl: troop.facebookUrl,
-    websiteUrl: troop.websiteUrl,
-  };
-}
-
-/** 旅嘅可點選團列表：優先用後台 units；完全冇就回落一筆旅層級資料。 */
-function unitsOf(troop: DistrictTroop): DistrictUnit[] {
-  if (troop.units && troop.units.length) return troop.units;
-  return [legacyUnit(troop)];
 }
 
 /** 某支部喺 units 入面有幾多個團（sectionCounts 缺失時嘅後備推算）。 */
@@ -75,7 +55,7 @@ export default function TroopsPage() {
 
   const troops = directory?.troops ?? [];
   const totalUnits = useMemo(
-    () => troops.reduce((sum, troop) => sum + unitsOf(troop).length, 0),
+    () => troops.reduce((sum, troop) => sum + troopUnitsForDisplay(troop).length, 0),
     [troops],
   );
 
@@ -111,8 +91,12 @@ export default function TroopsPage() {
               const key = `${troop.troop}-${troop.label}`;
               const isOpen = expanded === key;
               const derivedCounts = unitsBySection(troop);
-              const units = unitsOf(troop);
-              const hasStructure = Boolean(troop.units && troop.units.length) || Object.keys(troop.sectionCounts || {}).length > 0;
+              const units = troopUnitsForDisplay(troop);
+              const hasStructure = SECTION_META.some((meta) => {
+                const count = troop.sectionCounts?.[meta.key as TroopSectionKey]
+                  || String(derivedCounts[meta.key] || '');
+                return hasOpenSectionCount(count);
+              });
               return (
                 <section className="troop-panel" key={key}>
                   <button
@@ -132,16 +116,17 @@ export default function TroopsPage() {
                         {SECTION_META.map((meta) => {
                           const count = troop.sectionCounts?.[meta.key as TroopSectionKey]
                             || String(derivedCounts[meta.key] || '');
-                          const active = Boolean(count);
+                          const active = hasOpenSectionCount(count);
+                          if (!active) return null;
                           return (
                             <span
                               key={meta.key}
-                              className={`section-chip${active ? ' on' : ''}`}
-                              title={`${meta.label}${active ? `：${count} 個團` : '：冇開此支部'}`}
+                              className="section-chip on"
+                              title={`${meta.label}：${count} 個團`}
                             >
                               <em>{meta.emoji}</em>
                               <b>{meta.label}</b>
-                              {active ? <i>{count}</i> : <i className="dash">—</i>}
+                              <i>{count}</i>
                             </span>
                           );
                         })}
@@ -152,32 +137,38 @@ export default function TroopsPage() {
 
                   {isOpen && (
                     <div className="troop-panel-body" id={`troop-body-${key}`}>
-                      <p className="troop-body-hint">
-                        {units.length} 個團 · 點選查看詳情（空白資料唔會顯示）
-                      </p>
-                      <div className="unit-grid">
-                        {units.map((unit, index) => (
-                          <button
-                            type="button"
-                            key={`${unit.section}-${unit.unitCode || index}`}
-                            className="unit-card"
-                            aria-haspopup="dialog"
-                            onClick={() => setSelected({ troop, unit })}
-                          >
-                            <span className="unit-card-emoji" aria-hidden="true">
-                              {SECTION_META.find((m) => m.key === unit.section)?.emoji || '🧭'}
-                            </span>
-                            <span className="unit-card-text">
-                              <strong>
-                                {unit.label}
-                                {unit.unitCode ? <span className="unit-code-badge">{unit.unitCode}</span> : null}
-                              </strong>
-                              <small>{unit.meetingTime || unit.location || '查看旅團公開資料'}</small>
-                            </span>
-                            <span className="unit-card-arrow" aria-hidden="true">›</span>
-                          </button>
-                        ))}
-                      </div>
+                      {units.length === 0 ? (
+                        <p className="empty">暫時未有已開設並公開嘅支部團資料。</p>
+                      ) : (
+                        <>
+                          <p className="troop-body-hint">
+                            {units.length} 個團 · 點選查看詳情（空白資料唔會顯示）
+                          </p>
+                          <div className="unit-grid">
+                            {units.map((unit, index) => (
+                              <button
+                                type="button"
+                                key={`${unit.section}-${unit.unitCode || index}`}
+                                className="unit-card"
+                                aria-haspopup="dialog"
+                                onClick={() => setSelected({ troop, unit })}
+                              >
+                                <span className="unit-card-emoji" aria-hidden="true">
+                                  {SECTION_META.find((m) => m.key === unit.section)?.emoji || '🧭'}
+                                </span>
+                                <span className="unit-card-text">
+                                  <strong>
+                                    {unit.label}
+                                    {unit.unitCode ? <span className="unit-code-badge">{unit.unitCode}</span> : null}
+                                  </strong>
+                                  <small>{unit.meetingTime || unit.location || '查看旅團公開資料'}</small>
+                                </span>
+                                <span className="unit-card-arrow" aria-hidden="true">›</span>
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
                     </div>
                   )}
                 </section>
