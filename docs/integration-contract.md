@@ -17,6 +17,7 @@
 | `Venues` | 經 `listVenues` 讀選項 |
 | `Items` | 經 `listItems` 讀選項及可借數量 |
 | `ActivityNotices` | 經 `listActivityNotices` 讀已清理公開欄位 |
+| `Units` | 只經 `listDistrictTroops` 讀公開旅團欄位；內部備註、支部團數、啟用狀態唔流出 |
 | `VenueBookings` | 只可經 `submitVenueRequest` 新增；不可讀／改 status |
 | `StockRequests` | 只可經 `submitStockRequest` 新增；不可讀／改 status |
 | `Roles / Cards / Perms / Users` | 不可讀；`Users` 含敏感資料 |
@@ -31,6 +32,7 @@ listCourseLinks
 listVenues
 listItems
 listActivityNotices?year=&section=&nature=
+listDistrictTroops
 ```
 
 `getPublicInfo` 經 member proxy 後只回傳白名單欄位（`districtName`／`venueRules`／`stockRules`／`troopList`／`cctvUrl`／`teamupBookingUrl`／`teamupReadOnlyUrl`／`fpsAccountName`／`fpsAccountNumber`）；借用規則、旅團清單同 Teamup 網址以區系統 Config 為唯一來源，成員端 hardcoded 內容只作後備。
@@ -51,6 +53,34 @@ leaderPhone
 leaderEmail
 note
 ```
+
+### `listDistrictTroops`（區內旅團公開名錄，v1.2 起）
+
+公開 GET（唔使登入），經 `/api/proxy` allowlist 轉發；API Key 只留喺 Vercel server env，瀏覽器唔會直接呼叫 Apps Script。
+
+```json
+{
+  "districtCode": "SKW",
+  "districtName": "筲箕灣區",
+  "troops": [
+    {
+      "troop": "17",
+      "label": "筲箕灣第十七旅",
+      "organizer": "主辦機構名稱",
+      "meetingTime": "逢星期六 14:00–16:00",
+      "instagramUrl": "https://...",
+      "facebookUrl": "https://...",
+      "websiteUrl": "https://..."
+    }
+  ]
+}
+```
+
+- 後台只回 `active=TRUE` 且 `publicVisible=TRUE` 嘅旅團；**唔會回傳**支部團數（`gh/cub/scout/venture/rover`）、內部 `note`、`active`、`publicVisible`、`sections`。
+- proxy 再做欄位白名單（淨係 7 個欄位）同網址驗證：只接受 `http(s)`，`javascript:`／`data:` 等偽連結清空；空字串欄位由前端隱藏，唔顯示空行。
+- 外部連結一律 `target="_blank"` 加 `rel="noopener noreferrer"`。
+- 管理資料由區管理系統 `/visit`（Units 表）維護，成員端只讀，唔提供編輯功能。
+- 異常處理：載入中顯示 spinner、失敗顯示錯誤＋重試、空名單顯示提示；手機版詳情以底部抽屜呈現。
 
 ## 公開 POST actions
 

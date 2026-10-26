@@ -111,6 +111,27 @@ export interface ActivityNotice {
   submittedAt: string;
 }
 
+/** 區內旅團名錄（listDistrictTroops；只含公開欄位，內部備註／支部團數唔會經 proxy 流出） */
+export interface DistrictTroop {
+  /** 旅號／旅團編號 */
+  troop: string;
+  /** 旅團名稱 */
+  label: string;
+  /** 主辦機構 */
+  organizer: string;
+  /** 集會時間 */
+  meetingTime: string;
+  instagramUrl: string;
+  facebookUrl: string;
+  websiteUrl: string;
+}
+
+export interface DistrictTroopsDirectory {
+  districtCode: string;
+  districtName: string;
+  troops: DistrictTroop[];
+}
+
 /** 區系統公開設定（getPublicInfo；動態文字唯一來源） */
 export interface PublicInfo {
   districtName: string;

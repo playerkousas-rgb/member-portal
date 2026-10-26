@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { DISTRICTS } from '@/lib/district';
 import type { DistrictInfo } from '@/lib/district';
+import { sanitizeTroopsDirectory } from '@/lib/troops';
 
 /**
  * 公開成員系統唯一後端入口。
@@ -23,6 +24,7 @@ const GET_ACTIONS = new Set([
   'listItems',
   'listAnnouncements',
   'listActivityNotices',
+  'listDistrictTroops',
 ]);
 
 /** GET 參數白名單：目前只有 listActivityNotices 嘅年份／支部／性質過濾會轉發去後台 */
@@ -231,6 +233,11 @@ function sanitizeGet(action: string, data: unknown): unknown {
       fpsAccountName: text(row.fpsAccountName).slice(0, 80),
       fpsAccountNumber: text(row.fpsAccountNumber).slice(0, 40),
     };
+  }
+  if (action === 'listDistrictTroops') {
+    // 區內旅團公開名錄：只回傳 7 個公開欄位，sections／note／active／publicVisible 等一律剝走；
+    // 網址再驗一次 http(s)，避免上游異常資料注入。
+    return sanitizeTroopsDirectory(data);
   }
   const rows = Array.isArray(data) ? data : [];
   if (action === 'listCourseLinks') {

@@ -34,6 +34,11 @@ const SERVICES = [
     tag: '公開提交', external: false,
   },
   {
+    href: '/troops', icon: '🧭', title: '區內旅團',
+    desc: '查閱區內旅團公開名錄：主辦機構、集會時間，以及 Instagram、Facebook 同旅團網頁。',
+    tag: '公開名錄', external: false,
+  },
+  {
     href: '/feedback', icon: '💬', title: '你講我聽',
     desc: '區務意見箱：可匿名留言、尋求支援；想收到回覆可留聯絡方法，亦可選擇保密直達區總監（DC）。',
     tag: '匿名留言', external: false,
