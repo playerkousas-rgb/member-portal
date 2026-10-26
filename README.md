@@ -18,6 +18,7 @@
 | `/stock` | `listItems`（主 Sheet 即時庫存） | `submitStockBatchRequest`（proxy；支援多項一次遞交） |
 | `/training` | `listCourseLinks` | `submitCourseReg` → 每班 Script `addReg` |
 | `/activity` | `listActivityNotices` | `submitActivityNotice` |
+| `/feedback`（你講我聽） | — | `submitDistrictFeedback`（匿名區務意見箱；可選 DC 保密直達） |
 | 全站 | `getConfig`、`getSystem`、`getPublicInfo` | 系統鎖定時 server 拒絕提交；借用規則／旅團清單／Teamup 網址等動態文字以區系統 Config 為唯一來源（本地常識只作後備） |
 
 `/course` 只係舊網址，會轉到 `/training`；`/calendar` 係舊網址，會轉到 `/venue#availability`。
@@ -30,6 +31,12 @@
 - 前端**唔存、亦唔暴露**任何 Teamup API Token／私人憑證（`TEAMUP_API_KEY` 只存喺區管理系統 Config）；瀏覽器對 Teamup 只有 iframe 唯讀讀取，冇直接寫入呼叫。
 - 唯一申請入口係下方成員表格 → `/api/proxy` → `submitVenueRequest` 寫入區管理系統；區管理 GS 先建立藍色「申請中」Teamup 事件，職員批核後同一事件轉紅（「確認借用」）。唔存在第二條獨立 Teamup 申請流程。
 - 區系統一次性設定：Teamup → Settings → Sharing → Create Link → 權限選 **Read-only** → 連結貼入 Config `TEAMUP_READONLY_URL`（runtime 生效，唔使重新部署）。
+
+### 「你講我聽」匿名區務意見箱（`/feedback`）
+
+- 預設**匿名**：唔填聯絡方法就冇任何個人資料；剔「想收到回覆」先展開聯絡欄位（電話／電郵／IG／FB）。proxy 喺 server 縱深把關——`wantReply !== true` 一律強制清空聯絡欄位，改 client 都繞唔過。
+- 留言類別：`opinion`（想同區講）／`support`（想區支援）；另設 `dcOnly` 保密選項——**後台必須寫入獨立 `DCConfidential` 分頁且 Sheet 分享權限只限 DC**，先算真正「只有 DC 睇到」。
+- 提交走 `/api/proxy` → 新 action `submitDistrictFeedback`（GS 待配合）；復用 honeypot、提交時間檢查、per-IP 限流，匿名留言唔記 IP。呢個渠道處理區務留言，同 Scout Admin widget 嘅 App 技術問題回報完全分開。
 
 ## 品牌及圖示
 

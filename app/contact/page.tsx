@@ -44,6 +44,10 @@ export default function ContactPage() {
           <span className="contact-icon">🐛</span>
           <span><small>網上表格 · 可匿名</small><strong>問題回報／意見回饋</strong></span>
         </ReportLink>
+        <Link className="contact-primary-card" href={withDistrict('/feedback')}>
+          <span className="contact-icon">💬</span>
+          <span><small>區務意見箱 · 可匿名 · 可直達 DC</small><strong>你講我聽</strong></span>
+        </Link>
       </section>
 
       <section className="panel">

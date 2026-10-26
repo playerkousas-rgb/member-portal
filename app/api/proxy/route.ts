@@ -44,6 +44,10 @@ const POST_FIELDS: Record<string, string[]> = {
     'year', 'section', 'nature', 'troop', 'activityName', 'startDateTime', 'endDateTime', 'location',
     'membersCount', 'leadersCount', 'parentsCount', 'leaderName', 'leaderPhone', 'leaderEmail', 'note',
   ],
+  // 「你講我聽」區務意見箱：匿名留言，聯絡方法選填；dcOnly=TRUE 由後台寫入 DC 專用保密分頁。
+  submitDistrictFeedback: [
+    'category', 'message', 'wantReply', 'contactName', 'contactType', 'contact', 'dcOnly',
+  ],
   // v6.2.1 canonical 欄位名；區後台 v4.18.0 會自動補舊制別名（scoutRank／extra／
   // guardian*／leaderPosition／payerName／note／formScreenshot…）轉發新舊制收表。
   submitCourseReg: [
@@ -61,6 +65,7 @@ const REQUIRED_FIELDS: Record<string, string[]> = {
   submitStockRequest: ['itemId', 'qty', 'borrowDate', 'returnDate', 'name', 'phone'],
   submitStockBatchRequest: ['borrowDate', 'returnDate', 'name', 'phone'],
   submitActivityNotice: ['section', 'nature', 'troop', 'activityName', 'startDateTime', 'endDateTime', 'location', 'leaderName', 'leaderPhone'],
+  submitDistrictFeedback: ['category', 'message'],
   submitCourseReg: ['courseId', 'memberType', 'nameZh', 'phone', 'email', 'receiptDataUrl'],
 };
 
@@ -373,6 +378,24 @@ function validateSubmission(action: string, body: JsonRecord): string {
     }
     if (text(body.activityName).length > 120) return '部分欄位內容過長。';
   }
+  if (action === 'submitDistrictFeedback') {
+    const category = text(body.category);
+    if (!['opinion', 'support'].includes(category)) return '請選擇有效嘅留言類別。';
+    const message = text(body.message);
+    if (message.length < 10) return '留言內容過短，請提供多啲詳情。';
+    if (message.length > 2000) return '留言內容不可超過 2000 字。';
+    const contactType = text(body.contactType);
+    if (contactType && !['phone', 'email', 'ig', 'fb'].includes(contactType)) {
+      return '聯絡方法類別不正確。';
+    }
+    // 要求回覆就必須有實際聯絡帳號；匿名留言（wantReply 非 true）一律清走聯絡欄位。
+    if (body.wantReply === true) {
+      if (!text(body.contact).trim()) return '你選擇咗收取回覆，請填寫聯絡方法。';
+    }
+    if (text(body.contactName).length > 120 || text(body.contact).length > 200) {
+      return '部分欄位內容過長。';
+    }
+  }
   if (action === 'submitCourseReg') {
     const receipt = text(body.receiptDataUrl);
     if (!/^data:image\/(jpeg|jpg|png|webp);base64,/i.test(receipt)) return '入數紙格式不正確。';
@@ -554,7 +577,16 @@ export async function POST(request: NextRequest) {
       return noStoreJson({ ok: true, data: batch.data });
     }
 
-    const upstream = await fetchPost(apiBaseFor(district), apiKey, action, pickPayload(action, body));
+    const payload = pickPayload(action, body);
+    // 「你講我聽」縱深防護：匿名留言（wantReply 非 true）喺 server 強制清走聯絡欄位，
+    // 就算有人改 client 繞過 UI，匿名提交都唔會帶任何個人聯絡資料去後台。
+    if (action === 'submitDistrictFeedback' && payload.wantReply !== true) {
+      payload.wantReply = false;
+      payload.contactName = '';
+      payload.contactType = '';
+      payload.contact = '';
+    }
+    const upstream = await fetchPost(apiBaseFor(district), apiKey, action, payload);
     if (!upstream.ok) return noStoreJson({ ok: false, error: upstream.error || '提交失敗。' }, 502);
     const result = asRecord(upstream.data);
     return noStoreJson({ ok: true, data: { refCode: text(result.refCode) } });

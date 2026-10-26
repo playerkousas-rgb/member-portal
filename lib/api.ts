@@ -224,6 +224,9 @@ export const api = {
   submitActivityNotice: (payload: UnknownRecord, meta: SubmissionMeta): Promise<ApiResult<SubmissionResult>> =>
     callPost('submitActivityNotice', { ...payload, ...meta }),
 
+  submitDistrictFeedback: (payload: UnknownRecord, meta: SubmissionMeta): Promise<ApiResult<SubmissionResult>> =>
+    callPost('submitDistrictFeedback', { ...payload, ...meta }),
+
   submitCourseReg: (payload: UnknownRecord, meta: SubmissionMeta): Promise<ApiResult<SubmissionResult>> =>
     callPost('submitCourseReg', { ...payload, ...meta }),
 };
