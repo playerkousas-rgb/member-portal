@@ -33,6 +33,11 @@ const SERVICES = [
     desc: '將旅團戶外活動資料交區會存檔；已遞交嘅知會可喺本頁查看記錄（只顯示公開欄位）。',
     tag: '公開提交', external: false,
   },
+  {
+    href: '/feedback', icon: '💬', title: '你講我聽',
+    desc: '區務意見箱：可匿名留言、尋求支援；想收到回覆可留聯絡方法，亦可選擇保密直達區總監（DC）。',
+    tag: '匿名留言', external: false,
+  },
 ];
 
 export default function HomePage() {

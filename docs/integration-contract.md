@@ -233,6 +233,30 @@ note
 }
 ```
 
+### `submitDistrictFeedback`（「你講我聽」區務意見箱）
+
+成員端 `/feedback`：預設匿名留言，聯絡方法選填；可選 DC 保密直達。
+
+```json
+{
+  "category": "opinion",
+  "message": "...（10–2000 字）",
+  "wantReply": false,
+  "contactName": "",
+  "contactType": "phone | email | ig | fb",
+  "contact": "",
+  "dcOnly": false
+}
+```
+
+- `category` 必填，僅接受 `opinion`（想同區講）／`support`（想區支援）；proxy 白名單及伺服器端驗證已強制。
+- `wantReply !== true` 一律視為匿名：proxy 會喺 server 強制清空 `contactName／contactType／contact`，匿名提交保證唔帶個人聯絡資料。
+- `wantReply === true` 時 `contact` 必填，`contactType` 僅接受 `phone／email／ig／fb`；`contactName`（稱呼）選填。
+- `dcOnly === true`：後台必須寫入**獨立保密分頁 `DCConfidential`**，而該分頁嘅 Google Sheet 分享權限只限 DC 帳號——唔可以淨係喺管理系統 UI 隱藏，否則「只有 DC 睇到」嘅承諾無效。一般留言寫入 `DistrictFeedback` 分頁。
+- 建議記錄欄位：`refCode`（例如 `FB-YYYYMMDD-xxxx`）、`createdAt`、以上 payload 全欄、提交來源（成員系統）；**唔需要、亦唔可以要求 Teamup 或其他第三方 Token**。
+- 區管理系統（scout-district-portal）需配合：留言列表頁＋角色把關（`DCConfidential` 僅 DC 角色可讀）；GS 未部署新 action 前成員端表單唔會對外開放（上游會回未知 action）。
+- 復用現成防濫用：honeypot、提交時間檢查、proxy per-IP 限流（10 分鐘 20 次）；匿名留言唔記 IP。
+
 ### `submitCourseReg`
 
 主要欄位（v6.2.1 起送 **canonical 名**；區後台 v4.18.0 會自動補舊制別名一併轉發新舊制收表）：
