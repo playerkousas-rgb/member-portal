@@ -39,6 +39,11 @@ const SERVICES = [
     tag: '公開名錄', external: false,
   },
   {
+    href: '/contact-district', icon: '📨', title: '聯絡區會',
+    desc: '申請區幹部探訪旅團，或邀請區幹部出席活動；可自願提供回覆方法。',
+    tag: '公開提交', external: false,
+  },
+  {
     href: '/feedback', icon: '💬', title: '你講我聽',
     desc: '區務意見箱：可匿名留言、尋求支援；想收到回覆可留聯絡方法，亦可選擇保密直達區總監（DC）。',
     tag: '匿名留言', external: false,

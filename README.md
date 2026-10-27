@@ -18,6 +18,8 @@
 | `/stock` | `listItems`（主 Sheet 即時庫存） | `submitStockBatchRequest`（proxy；支援多項一次遞交） |
 | `/training` | `listCourseLinks` | `submitCourseReg` → 每班 Script `addReg` |
 | `/activity` | `listActivityNotices` | `submitActivityNotice` |
+| `/troops`（區內旅團） | `listDistrictTroops` | — |
+| `/contact-district`（聯絡區會） | `listDistrictTroops` | `submitVisitRequest`（旅團探訪申請／活動邀請） |
 | `/feedback`（你講我聽） | — | `submitDistrictFeedback`（匿名區務意見箱；可選 DC 保密直達） |
 | 全站 | `getConfig`、`getSystem`、`getPublicInfo` | 系統鎖定時 server 拒絕提交；借用規則／旅團清單／Teamup 網址等動態文字以區系統 Config 為唯一來源（本地常識只作後備） |
 
@@ -37,6 +39,14 @@
 - 預設**匿名**：唔填聯絡方法就冇任何個人資料；剔「想收到回覆」先展開聯絡欄位（電話／電郵／IG／FB）。proxy 喺 server 縱深把關——`wantReply !== true` 一律強制清空聯絡欄位，改 client 都繞唔過。
 - 留言類別：`opinion`（想同區講）／`support`（想區支援）；另設 `dcOnly` 保密選項——**後台必須寫入獨立 `DCConfidential` 分頁且 Sheet 分享權限只限 DC**，先算真正「只有 DC 睇到」。
 - 提交走 `/api/proxy` → 新 action `submitDistrictFeedback`（GS 待配合）；復用 honeypot、提交時間檢查、per-IP 限流，匿名留言唔記 IP。呢個渠道處理區務留言，同 Scout Admin widget 嘅 App 技術問題回報完全分開。
+
+### 「聯絡區會」探訪申請及活動邀請（`/contact-district`）
+
+- 旅號及支部由 `listDistrictTroops` 公開名錄提供；只列該旅已開設的支部，全旅申請可留空。proxy 每次提交前重新核對最新公開名錄，名錄不可用時不提交。
+- 申請人可自願要求回覆；未要求時前端即時清除及隱藏聯絡欄位，瀏覽器和 proxy 均不會傳送這些欄位。聯絡資料不保存在本機草稿，只供區會回覆今次申請。
+- `submitVisitRequest` 經 server-side proxy 呼叫，成功顯示 `TR-...` 編號；申請交區會跟進，**不會自動成為探訪紀錄**。實際探訪後由區幹部另行登記。
+- 成員端不讀取 `TroopContacts` 或任何領袖私人電話／電郵；區方未建立旅團私人聯絡資料亦不會阻止申請，旅團選項來自公開名錄。`submitActivityNotice` 及 `listDistrictTroops` 既有合約不變。
+- **部署狀態及限制：**2026-10-27 唯讀健康檢查顯示筲箕灣區線上 GS 為 v4.32.0，`visitRequestsReady=true`。PR #54 原始碼有兩處與合約不符：活動名稱上限 120 字（合約 200），參加人數上限 9999（合約只要求正整數）；健康檢查無法確認線上部署有否修正這些限制。成員端依合約驗證並如實顯示 GS 錯誤，須與區方核實或部署後測試。詳見 [`docs/integration-contract.md`](docs/integration-contract.md)。
 
 ## 品牌及圖示
 
@@ -99,11 +109,11 @@ browser（無 API Key）
 
 > 基本 rate limit 唔取代 CDN / WAF 或 Apps Script 端限流；正式上線仍建議加 Turnstile / reCAPTCHA。
 
-## 對接狀態（與 scout-district-portal v4.31.0 核對）
+## 對接狀態（與 scout-district-portal v4.32.0 核對）
 
-已對照管理系統 MAIN `8bda6bd`（2026-10-26），其 `gs/Code.gs` 最新版本為 v4.31.0。本次只同步成員端公開旅團名錄顯示；未改管理系統程式或部署 Apps Script，線上版本仍應以 `getHealthCheck` 驗證。
+已對照管理系統 PR #54 合併 commit `03352ed` 的 `gs/Code.gs`；本次沒有修改管理系統程式。2026-10-27 公開 `getHealthCheck` 回報線上 GS v4.32.0 及 `visitRequestsReady=true`；健康檢查不能證明實際欄位上限或完成正式端到端連線。
 
-- 成員系統使用嘅公開 GET／POST actions 均仍由 v4.31.0 支援；`/api/proxy` 維持公開 action allowlist，唔會放行管理、登入或批核 action。
+- `/api/proxy` 維持公開 action allowlist，唔會放行管理、私人聯絡、登入或批核 action。
 - `listDistrictTroops` 維持 v1.3 旅→團欄位合約，但 v4.31.0 只回傳已開設支部：`sectionCounts` 省略 0／空白，`units` 排除已關閉支部嘅團。成員頁只顯示有團嘅支部標籤。
 - `units: []` 係新版後台明確表示「目前冇已開設／公開團」；只有舊版回應完全冇 `units` 欄位時，前端先回落到旅層級資料。proxy sanitizer 會保留呢個分別，避免已關閉／隱藏嘅團重新顯示。
 - 課程合約維持不變：`listCourseLinks` 只回傳公開欄位，唔會外洩 `scriptExecUrl / scriptApiKey / driveFolderId`；`submitCourseReg` 由後台檢查 deadline／quota，再 server-side 轉發到每班 Script。
@@ -111,6 +121,7 @@ browser（無 API Key）
 餘下事項：
 
 - 尚未有真實課程，訓練班報名流程未做過端到端實測；待開班後應以「真實課程」行一次報名，確認 `refCode` 回傳及每班 Sheet 收到資料。
+- 聯絡區會正式端到端測試尚未進行：2026-10-27 合併前確認 GS 就緒，當時正式成員站 `/contact-district` 仍回 404；須待新成員端部署後，才可測試真實提交和區方跟進。需另核實線上 GS 的活動名稱及人數上限。
 - 部署前提：Vercel 設好 `MEMBER_SKW_APIKEY`，管理系統主 `Code.gs` 已部署為「任何人」可執行嘅 Web App，並喺 `Config` 設定 `API_KEY_HASH`；可經免 API Key 嘅 `getHealthCheck` 確認線上版本。
 
 ## 本機及 Vercel 設定
@@ -134,14 +145,14 @@ API Key 只可放 server env，**不可使用 `NEXT_PUBLIC_` 前綴**。
 
 ```bash
 npm run typecheck
-npm run test:troops
+npm test                 # 旅團名錄、聯絡區會表單及 proxy（模擬 GS）
 npm run build
 npm audit
 ```
 
 ## 表單防呆機制（lib/useFormGuard.ts）
 
-借場、借物資、活動知會、訓練班報名四張表全部有同一套防呆（移植自區系統 v4.15.0「寫入防呆」）：
+借場、借物資、活動知會、訓練班報名、區務意見及聯絡區會表單沿用同一套防呆（移植自區系統 v4.15.0「寫入防呆」）：
 
 1. **草稿自動保存**——填緊嘅嘢 800ms 後自動存入瀏覽器 localStorage（`mp:draft:*`），refresh／意外關頁都唔會甩；收據／截圖大檔喺配額唔夠時會自動剔走、文字照保住；
 2. **離開提示**——有未提交內容就離開頁面／重新整理，瀏覽器會彈提示（同區系統探訪頁同一寫法）；

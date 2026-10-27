@@ -17,9 +17,11 @@
 | `Venues` | 經 `listVenues` 讀選項 |
 | `Items` | 經 `listItems` 讀選項及可借數量 |
 | `ActivityNotices` | 經 `listActivityNotices` 讀已清理公開欄位 |
-| `Units` | 只經 `listDistrictTroops` 讀公開旅團欄位；內部備註、支部團數、啟用狀態唔流出 |
+| `Units`／`UnitSections` | 只經 `listDistrictTroops` 讀 v1.3 公開旅團、已開設支部及團欄位；內部備註及啟用狀態唔流出 |
 | `VenueBookings` | 只可經 `submitVenueRequest` 新增；不可讀／改 status |
 | `StockRequests` | 只可經 `submitStockRequest` 新增；不可讀／改 status |
+| `VisitRequests` | 只可經 `submitVisitRequest` 新增；不可讀／改 status |
+| `TroopContacts` | 私隱表，只限管理系統；成員端不得讀取或提供相關 action |
 | `Roles / Cards / Perms / Users` | 不可讀；`Users` 含敏感資料 |
 
 ## 公開 GET actions
@@ -278,6 +280,35 @@ note
   "note": "..."
 }
 ```
+
+### `submitVisitRequest`（「聯絡區會」，GS v4.32.0）
+
+成員端 `/contact-district` 讓旅團申請區幹部探訪（`visit`）或邀請出席活動（`invite`）。以下為不要求回覆的例子；經 member proxy POST 至共用 GS，API Key 只由 server env 注入：
+
+```json
+{
+  "type": "visit",
+  "troop": "1745",
+  "section": "scout",
+  "activityName": "",
+  "preferredDate": "2026-12-05",
+  "preferredTime": "下午 2 時",
+  "location": "旅團集會地點",
+  "purpose": "希望區幹部探訪旅團並交流支援需要",
+  "attendeeCount": 20,
+  "wantReply": false
+}
+```
+
+- `type` 為 `visit`／`invite`；`troop` 必須是公開 `listDistrictTroops` 內的旅號。`section` 可留空表示全旅，否則僅可為該旅實際已開設的 `gh/cub/scout/venture/rover`。proxy 每次提交都重新讀取並核對公開名錄，失敗時拒絕提交。
+- `activityName` 在邀請時必填、最長 200 字；`preferredDate` 選填且須為有效的 `yyyy-MM-dd`；`preferredTime` 最長 40 字，`location` 最長 200 字；`purpose` 必填 5–2000 字；`attendeeCount` 選填，只接受正整數（安全整數範圍）。
+- `wantReply` 只接受布林值，預設 `false`。只有 `true` 才接受 `contactName`（選填、最多 80 字）、`contactType`（必填：`phone/email/ig/fb`）及 `contact`（必填、最多 160 字）。取消回覆時前端立即隱藏並清除欄位，瀏覽器及 proxy 均不轉發它們；聯絡資料不保存於本機草稿。旅號及目的仍會提交，因此「不要求回覆」不等於整份申請必然匿名。
+- 成功 GS 回 `{ok:true,data:{id,refCode}}`，proxy 只回公開參考編號 `{ok:true,data:{refCode}}`；缺有效 `TR-yyyyMMdd-序號` 不可顯示成功，應提示先聯絡區會核對。GS 錯誤須原樣或清楚地顯示，不能假裝成功。
+- 申請交區會跟進，**不會自動寫入探訪紀錄**；實際探訪後由區幹部在管理系統另行登記。未要求回覆者須獲提示區會未必能主動聯絡。成員端不能讀取 `TroopContacts` 或 `getTroopContacts`；旅長及團長私人電話／電郵不可出現在公開名錄或回應。
+
+**上游合約差異待核實：**區管理 [PR #54 合併 commit 的 GS 原始碼](https://github.com/playerkousas-rgb/scout-district-portal/blob/03352ed0f86f1550a74ec2e5191af3d266cf270b/gs/Code.gs#L4500-L4558) 中，`activityName` 使用 `troopText_(..., 120)` 而非文件的 200 字；`attendeeCount` 拒絕超過 9999 人。成員端不截斷資料，依以上合約允許 200 字及正整數，GS 如拒絕會顯示錯誤。健康檢查不會顯示欄位上限，須與區方核實部署版本有否修正，或待成員端部署後測試；未對齊前無法完整支援 121–200 字活動名稱及大於 9999 的正整數。
+
+**正式環境尚未完成端到端驗證：**2026-10-27 合併前已查核筲箕灣區公開 `getHealthCheck`，回報 GS `4.32.0` 及 `visitRequestsReady=true`；公開旅團名錄的 1745 僅有童軍支部。當時正式成員站 `/contact-district` 仍回 404，須待新成員端部署後，才可真實提交、核對 `TR` 編號及區方跟進。此 repo 的自動測試使用模擬 GS，不代表正式提交已打通。
 
 ### `submitDistrictFeedback`（「你講我聽」區務意見箱）
 

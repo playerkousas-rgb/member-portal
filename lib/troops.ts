@@ -86,6 +86,25 @@ export function sanitizeTroop(value: unknown): DistrictTroop {
 }
 
 /**
+ * 名錄標籤同申請表共用：只揀已開設嘅支部。
+ * 優先採用旅嘅 sectionCounts；冇團數時才由公開 units 推算，
+ * 明確嘅「0」唔會被舊或異常嘅 units 覆蓋。
+ */
+export function openSectionsForTroop(troop: DistrictTroop) {
+  const unitCounts: Partial<Record<TroopSectionKey, number>> = {};
+  for (const unit of troop.units || []) {
+    if (SECTION_KEYS.has(unit.section)) {
+      const key = unit.section as TroopSectionKey;
+      unitCounts[key] = (unitCounts[key] || 0) + 1;
+    }
+  }
+  return SECTION_META.flatMap((meta) => {
+    const count = troop.sectionCounts?.[meta.key] || String(unitCounts[meta.key] || '');
+    return hasOpenSectionCount(count) ? [{ ...meta, count }] : [];
+  });
+}
+
+/**
  * 新版後台回傳 units: [] 代表目前冇已開設／公開團；只有舊版完全冇 units 欄時先回落旅資料。
  * 保留呢個差異，避免將新版明確隱藏嘅支部重新顯示成虛構嘅單一團。
  */
