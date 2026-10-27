@@ -19,10 +19,11 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import {
-  hasOpenSectionCount, SECTION_META, safePublicUrl, sanitizeTroop, sanitizeTroopsDirectory, sanitizeUnit,
+  hasOpenSectionCount, openSectionsForTroop, SECTION_META, safePublicUrl, sanitizeTroop, sanitizeTroopsDirectory, sanitizeUnit,
   troopUnitsForDisplay, unitDetailFields, troopFallbackFields, dialogFields,
 } from '../lib/troops';
 import TroopDialog from '../components/TroopDialog';
+import TroopSectionChips from '../components/TroopSectionChips';
 import type { DistrictTroop, DistrictUnit } from '../lib/types';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -74,6 +75,25 @@ test('v4.31.0 開設支部判斷：零／空白隱藏，常規團、空團及海
   for (const value of ['1', '2', '10', '1+A1', '1+A1+S1', 'A1', 'S1']) {
     assert.equal(hasOpenSectionCount(value), true, `${value} 應視為已開設`);
   }
+});
+
+test('1745 只開設童軍：標籤只顯示童軍，零／空白不畫佔位；缺團數可按 units 推算', () => {
+  const troop = sanitizeTroop({
+    troop: '1745', label: '港島第1745旅',
+    sectionCounts: { gh: '0', cub: '', scout: '1', venture: '0', rover: '' },
+    units: [{ section: 'scout', unitCode: '', label: '童軍團' }],
+  });
+  assert.deepEqual(openSectionsForTroop(troop).map((item) => item.key), ['scout']);
+  const html = renderToStaticMarkup(createElement(TroopSectionChips, { troop }));
+  assert.equal((html.match(/class="section-chip on"/g) || []).length, 1);
+  assert.ok(html.includes('<b>童軍</b>'));
+  for (const other of ['小童軍', '幼童軍', '深資童軍', '樂行童軍']) assert.ok(!html.includes(other));
+
+  const unitsOnly = sanitizeTroop({ troop: '82', units: [{ section: 'cub', label: '幼童軍團' }] });
+  assert.deepEqual(openSectionsForTroop(unitsOnly).map((item) => item.key), ['cub']);
+  const closed = sanitizeTroop({ troop: '82', sectionCounts: { cub: '0' }, units: [{ section: 'cub', label: '舊團' }] });
+  assert.deepEqual(openSectionsForTroop(closed), [], '明確零團不被異常 units 覆蓋');
+  assert.equal(renderToStaticMarkup(createElement(TroopSectionChips, { troop: closed })), '');
 });
 
 test('sanitizeUnit：只保留 8 個公開欄位，非法支部清走，內部旗標唔流出', () => {

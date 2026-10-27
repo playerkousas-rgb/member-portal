@@ -48,6 +48,10 @@ export default function ContactPage() {
           <span className="contact-icon">💬</span>
           <span><small>區務意見箱 · 可匿名 · 可直達 DC</small><strong>你講我聽</strong></span>
         </Link>
+        <Link className="contact-primary-card" href={withDistrict('/contact-district')}>
+          <span className="contact-icon">📨</span>
+          <span><small>旅團探訪申請 · 活動邀請</small><strong>聯絡區會</strong></span>
+        </Link>
       </section>
 
       <section className="panel">

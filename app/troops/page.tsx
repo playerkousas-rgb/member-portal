@@ -2,23 +2,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import TroopDialog from '@/components/TroopDialog';
-import { hasOpenSectionCount, SECTION_META, troopUnitsForDisplay } from '@/lib/troops';
+import TroopSectionChips from '@/components/TroopSectionChips';
+import { SECTION_META, troopUnitsForDisplay } from '@/lib/troops';
 import { api } from '@/lib/api';
 import { useDistrict } from '@/lib/useDistrict';
-import type { DistrictTroop, DistrictTroopsDirectory, DistrictUnit, TroopSectionKey } from '@/lib/types';
+import type { DistrictTroop, DistrictTroopsDirectory, DistrictUnit } from '@/lib/types';
 
 interface Selection {
   troop: DistrictTroop;
   unit: DistrictUnit;
-}
-
-/** 某支部喺 units 入面有幾多個團（sectionCounts 缺失時嘅後備推算）。 */
-function unitsBySection(troop: DistrictTroop): Record<string, number> {
-  const out: Record<string, number> = {};
-  (troop.units || []).forEach((u) => {
-    if (u.section) out[u.section] = (out[u.section] || 0) + 1;
-  });
-  return out;
 }
 
 export default function TroopsPage() {
@@ -90,13 +82,7 @@ export default function TroopsPage() {
             {troops.map((troop) => {
               const key = `${troop.troop}-${troop.label}`;
               const isOpen = expanded === key;
-              const derivedCounts = unitsBySection(troop);
               const units = troopUnitsForDisplay(troop);
-              const hasStructure = SECTION_META.some((meta) => {
-                const count = troop.sectionCounts?.[meta.key as TroopSectionKey]
-                  || String(derivedCounts[meta.key] || '');
-                return hasOpenSectionCount(count);
-              });
               return (
                 <section className="troop-panel" key={key}>
                   <button
@@ -111,27 +97,7 @@ export default function TroopsPage() {
                       {troop.troop && troop.label ? <small>旅號 {troop.troop}</small> : null}
                     </span>
                     <span className="troop-panel-org">{troop.organizer || '—'}</span>
-                    {hasStructure && (
-                      <span className="troop-section-chips">
-                        {SECTION_META.map((meta) => {
-                          const count = troop.sectionCounts?.[meta.key as TroopSectionKey]
-                            || String(derivedCounts[meta.key] || '');
-                          const active = hasOpenSectionCount(count);
-                          if (!active) return null;
-                          return (
-                            <span
-                              key={meta.key}
-                              className="section-chip on"
-                              title={`${meta.label}：${count} 個團`}
-                            >
-                              <em>{meta.emoji}</em>
-                              <b>{meta.label}</b>
-                              <i>{count}</i>
-                            </span>
-                          );
-                        })}
-                      </span>
-                    )}
+                    <TroopSectionChips troop={troop} />
                     <span className={`troop-panel-arrow${isOpen ? ' open' : ''}`} aria-hidden="true">▾</span>
                   </button>
 

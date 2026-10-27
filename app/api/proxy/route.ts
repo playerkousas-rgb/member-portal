@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { DISTRICTS } from '@/lib/district';
 import type { DistrictInfo } from '@/lib/district';
 import { sanitizeTroopsDirectory } from '@/lib/troops';
+import { isVisitReference, prepareVisitRequest, validateVisitRequestDirectory } from '@/lib/visitRequest';
 
 /**
  * 公開成員系統唯一後端入口。
@@ -50,6 +51,11 @@ const POST_FIELDS: Record<string, string[]> = {
   submitDistrictFeedback: [
     'category', 'message', 'wantReply', 'contactName', 'contactType', 'contact', 'dcOnly',
   ],
+  // 成員只可提交探訪／活動邀請；不提供讀取旅團私人聯絡資料的 action。
+  submitVisitRequest: [
+    'type', 'troop', 'section', 'activityName', 'preferredDate', 'preferredTime', 'location',
+    'purpose', 'attendeeCount', 'wantReply', 'contactName', 'contactType', 'contact',
+  ],
   // v6.2.1 canonical 欄位名；區後台 v4.18.0 會自動補舊制別名（scoutRank／extra／
   // guardian*／leaderPosition／payerName／note／formScreenshot…）轉發新舊制收表。
   submitCourseReg: [
@@ -68,6 +74,7 @@ const REQUIRED_FIELDS: Record<string, string[]> = {
   submitStockBatchRequest: ['borrowDate', 'returnDate', 'name', 'phone'],
   submitActivityNotice: ['section', 'nature', 'troop', 'activityName', 'startDateTime', 'endDateTime', 'location', 'leaderName', 'leaderPhone'],
   submitDistrictFeedback: ['category', 'message'],
+  submitVisitRequest: ['type', 'troop', 'purpose'],
   submitCourseReg: ['courseId', 'memberType', 'nameZh', 'phone', 'email', 'receiptDataUrl'],
 };
 
@@ -101,6 +108,17 @@ function asRecord(value: unknown): JsonRecord {
 }
 function text(value: unknown): string {
   return value == null ? '' : String(value);
+}
+function safeUpstreamError(value: unknown, apiKey: string, fallback: string): string {
+  let message = text(value) || fallback;
+  if (apiKey) {
+    // 上游錯誤有機會帶 URL，連 URL 編碼過的 key 也要隱藏。
+    const encoded = new URLSearchParams({ key: apiKey }).toString().slice(4);
+    for (const secret of new Set([apiKey, encodeURIComponent(apiKey), encoded])) {
+      message = message.split(secret).join('[已隱藏]');
+    }
+  }
+  return message;
 }
 function number(value: unknown): number {
   const parsed = Number(value);
@@ -326,7 +344,11 @@ async function parseUpstreamResponse(response: Response) {
     throw new Error('Apps Script 尚未設為公開 Web App。');
   }
   try {
-    return normalizeUpstream(JSON.parse(body));
+    const result = normalizeUpstream(JSON.parse(body));
+    if (!response.ok) {
+      return { ok: false, error: result.error || `區會後台回應 HTTP ${response.status}，未能處理請求。` };
+    }
+    return result;
   } catch {
     throw new Error(`Apps Script 回應無法解析（HTTP ${response.status}）。`);
   }
@@ -356,6 +378,10 @@ function validateSubmission(action: string, body: JsonRecord): string {
   const startedAt = number(body._startedAt);
   if (!startedAt || Date.now() - startedAt < 600 || startedAt > Date.now() + 60_000) {
     return '提交速度太快，請稍後再試。';
+  }
+  if (action === 'submitVisitRequest') {
+    const prepared = prepareVisitRequest(pickPayload(action, body));
+    if (!prepared.ok) return prepared.error;
   }
   for (const field of REQUIRED_FIELDS[action] || []) {
     if (!text(body[field]).trim()) return '請填妥所有必填資料。';
@@ -531,10 +557,10 @@ export async function GET(request: NextRequest) {
 
   try {
     const upstream = await fetchGet(apiBaseFor(district), apiKey, action, allowedParams);
-    if (!upstream.ok) return noStoreJson({ ok: false, error: upstream.error || '後台未能處理請求。' }, 502);
+    if (!upstream.ok) return noStoreJson({ ok: false, error: safeUpstreamError(upstream.error, apiKey, '後台未能處理請求。') }, 502);
     return noStoreJson({ ok: true, data: sanitizeGet(action, upstream.data) });
   } catch (error) {
-    return noStoreJson({ ok: false, error: error instanceof Error ? error.message : 'Proxy fetch failed' }, 502);
+    return noStoreJson({ ok: false, error: safeUpstreamError(error instanceof Error ? error.message : '', apiKey, 'Proxy fetch failed') }, 502);
   }
 }
 
@@ -562,6 +588,13 @@ export async function POST(request: NextRequest) {
     return noStoreJson({ ok: false, error: '此公開系統不允許使用該 action。' }, 403);
   }
 
+  // 即使 client 帶咗舊值，只要冇明確要求回覆，就先清走聯絡資料再驗證及轉發。
+  if (action === 'submitVisitRequest' && body.wantReply !== true) {
+    delete body.contactName;
+    delete body.contactType;
+    delete body.contact;
+  }
+
   const validationError = validateSubmission(action, body);
   if (validationError) return noStoreJson({ ok: false, error: validationError }, 400);
   if (!allowRate(clientIp(request))) return noStoreJson({ ok: false, error: '提交次數太多，請稍後再試。' }, 429);
@@ -580,8 +613,50 @@ export async function POST(request: NextRequest) {
 
     if (action === 'submitStockBatchRequest') {
       const batch = await submitStockBatch(apiBaseFor(district), apiKey, body);
-      if (!batch.ok) return noStoreJson({ ok: false, error: batch.error || '物資申請提交失敗。' }, 502);
+      if (!batch.ok) return noStoreJson({ ok: false, error: safeUpstreamError(batch.error, apiKey, '物資申請提交失敗。') }, 502);
       return noStoreJson({ ok: true, data: batch.data });
+    }
+
+    if (action === 'submitVisitRequest') {
+      const prepared = prepareVisitRequest(pickPayload(action, body));
+      if (!prepared.ok) return noStoreJson({ ok: false, error: prepared.error }, 400);
+      // 只使用現有公開名錄：每次提交都重新核對，防止偽造旅號或選擇已關閉的支部。
+      const directoryResult = await fetchGet(apiBaseFor(district), apiKey, 'listDistrictTroops').catch(() => null);
+      if (!directoryResult) {
+        return noStoreJson({ ok: false, error: '未能連接公開旅團名錄，暫時無法核對旅團；請稍後再試。' }, 503);
+      }
+      if (!directoryResult.ok) {
+        return noStoreJson({
+          ok: false,
+          error: `未能核對公開旅團名錄：${safeUpstreamError(directoryResult.error, apiKey, '請稍後再試。')}`,
+        }, 503);
+      }
+      if (!Array.isArray(asRecord(directoryResult.data).troops)) {
+        return noStoreJson({ ok: false, error: '公開旅團名錄回應不正確，暫時未能核對旅團。' }, 503);
+      }
+      const directory = sanitizeTroopsDirectory(directoryResult.data);
+      const directoryError = validateVisitRequestDirectory(prepared.payload, directory);
+      if (directoryError) return noStoreJson({ ok: false, error: directoryError }, 400);
+
+      const upstream = await fetchPost(apiBaseFor(district), apiKey, action, { ...prepared.payload }).catch(() => null);
+      if (!upstream) {
+        return noStoreJson({
+          ok: false,
+          error: '連接區會後台時中斷，提交狀態未能確認；請先聯絡區會核對，切勿重複提交。',
+        }, 502);
+      }
+      if (!upstream.ok) {
+        return noStoreJson({ ok: false, error: safeUpstreamError(upstream.error, apiKey, '申請提交失敗。') }, 502);
+      }
+      const result = asRecord(upstream.data);
+      if (!isVisitReference(result.refCode)) {
+        return noStoreJson({
+          ok: false,
+          error: '後台未回傳有效申請編號，提交狀態未能確認；請先聯絡區會核對，切勿重複提交。',
+        }, 502);
+      }
+      // 回應只包含公開參考編號，不轉發任何上游額外欄位。
+      return noStoreJson({ ok: true, data: { refCode: result.refCode.trim() } });
     }
 
     const payload = pickPayload(action, body);
@@ -594,10 +669,10 @@ export async function POST(request: NextRequest) {
       payload.contact = '';
     }
     const upstream = await fetchPost(apiBaseFor(district), apiKey, action, payload);
-    if (!upstream.ok) return noStoreJson({ ok: false, error: upstream.error || '提交失敗。' }, 502);
+    if (!upstream.ok) return noStoreJson({ ok: false, error: safeUpstreamError(upstream.error, apiKey, '提交失敗。') }, 502);
     const result = asRecord(upstream.data);
     return noStoreJson({ ok: true, data: { refCode: text(result.refCode) } });
   } catch (error) {
-    return noStoreJson({ ok: false, error: error instanceof Error ? error.message : 'Proxy fetch failed' }, 502);
+    return noStoreJson({ ok: false, error: safeUpstreamError(error instanceof Error ? error.message : '', apiKey, 'Proxy fetch failed') }, 502);
   }
 }

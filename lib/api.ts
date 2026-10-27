@@ -4,6 +4,7 @@
  */
 import { resolveDistrictCode } from './district';
 import { sanitizeTroopsDirectory } from './troops';
+import type { VisitRequestPayload } from './visitRequest';
 import type {
   Announcement, ApiResult, ActivityNotice, CourseLink, DistrictConfig,
   DistrictTroopsDirectory, Item,
@@ -235,6 +236,9 @@ export const api = {
 
   submitDistrictFeedback: (payload: UnknownRecord, meta: SubmissionMeta): Promise<ApiResult<SubmissionResult>> =>
     callPost('submitDistrictFeedback', { ...payload, ...meta }),
+
+  submitVisitRequest: (payload: VisitRequestPayload, meta: SubmissionMeta): Promise<ApiResult<SubmissionResult>> =>
+    callPost('submitVisitRequest', { ...payload, ...meta }),
 
   submitCourseReg: (payload: UnknownRecord, meta: SubmissionMeta): Promise<ApiResult<SubmissionResult>> =>
     callPost('submitCourseReg', { ...payload, ...meta }),

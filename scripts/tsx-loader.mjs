@@ -11,6 +11,20 @@ import ts from 'typescript';
 const TS_EXTS = ['.tsx', '.ts', '.jsx', '.js'];
 
 export async function resolve(specifier, context, nextResolve) {
+  // Next.js app 用 tsconfig @/ alias；測試直接載入 app／proxy 時同樣要解析。
+  if (specifier.startsWith('@/')) {
+    const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+    const target = path.resolve(root, specifier.slice(2));
+    for (const ext of ['', ...TS_EXTS]) {
+      if (existsSync(target + ext) && !target.endsWith(path.sep)) {
+        return nextResolve(pathToFileURL(target + ext).href, context);
+      }
+    }
+  }
+  // Next.js 的 CommonJS 子路徑在 node ESM 必須帶 .js。
+  if (['next/server', 'next/link', 'next/navigation'].includes(specifier)) {
+    return nextResolve(`${specifier}.js`, context);
+  }
   // 專案沿用 bundler 寫法（相對 import 唔寫副檔名）；node ESM 要補返。
   if ((specifier.startsWith('./') || specifier.startsWith('../')) && !/\.[cm]?[jt]sx?$/.test(specifier)) {
     const parentFile = context.parentURL ? fileURLToPath(context.parentURL) : process.cwd();
