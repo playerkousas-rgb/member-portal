@@ -10,14 +10,9 @@ const ANNOUNCEMENT_URL = 'https://scout-circulars.vercel.app/';
 
 const SERVICES = [
   {
-    href: 'https://gemini-woad-sigma.vercel.app/', icon: '✨', title: 'GEMINI 輔助系統',
-    desc: '開啟 GEMINI 輔助系統。',
-    tag: '外連', external: true,
-  },
-  {
-    href: 'https://scoutappstore.vercel.app/', icon: '🧰', title: 'SCOUT APP STORE',
-    desc: '瀏覽童軍小工具及其他資源，尋找適合各支部嘅應用。',
-    tag: '外連', external: true,
+    href: '/books', icon: '📚', title: '我的紀錄冊',
+    desc: '選擇自己支部嘅個人紀錄冊，下次可直接開啟。',
+    tag: '個人紀錄', external: false,
   },
   {
     href: '/venue', icon: '🏛', title: '借用區總部',
@@ -40,6 +35,16 @@ const SERVICES = [
     tag: '外連', external: true,
   },
   {
+    href: 'https://gemini-woad-sigma.vercel.app/', icon: '✨', title: 'GEMINI 輔助系統',
+    desc: '開啟 GEMINI 輔助系統。',
+    tag: '外連', external: true,
+  },
+  {
+    href: 'https://scoutappstore.vercel.app/', icon: '🧰', title: 'SCOUT APP STORE',
+    desc: '瀏覽童軍小工具及其他資源，尋找適合各支部嘅應用。',
+    tag: '外連', external: true,
+  },
+  {
     href: '/activity', icon: '📋', title: '旅團活動知會',
     desc: '將旅團戶外活動資料交區會存檔；已遞交嘅知會可喺本頁查看記錄（只顯示公開欄位）。',
     tag: '公開提交', external: false,
@@ -53,11 +58,6 @@ const SERVICES = [
     href: '/contact-district', icon: '📨', title: '聯絡區會',
     desc: '申請區幹部探訪旅團，或邀請區幹部出席活動；可自願提供回覆方法。',
     tag: '公開提交', external: false,
-  },
-  {
-    href: '/books', icon: '📚', title: '我的紀錄冊',
-    desc: '選擇自己支部嘅個人紀錄冊，下次可直接開啟。',
-    tag: '個人紀錄', external: false,
   },
   {
     href: '/feedback', icon: '💬', title: '你講我聽',
