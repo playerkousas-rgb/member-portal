@@ -46,7 +46,6 @@ export default function InstallPrompt() {
     <section className="panel install-panel" aria-labelledby="install-title">
       <div>
         <h2 id="install-title">📱 加入主畫面</h2>
-        <p>將服務平台加到手機或電腦主畫面，下次可以直接開啟。</p>
       </div>
       <button type="button" className="btn-sm" onClick={install}>
         {installEvent ? '安裝服務平台' : '查看安裝方法'}

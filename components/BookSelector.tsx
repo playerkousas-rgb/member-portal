@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import ScoutSystemCredit from '@/components/ScoutSystemCredit';
 
 const BOOKS = [
   { id: 'cub', name: '幼童軍紀錄冊', short: '幼童軍', url: 'https://cubsbook.vercel.app/', color: '#a46b00' },
@@ -55,6 +56,7 @@ export default function BookSelector({ homeHref }: { homeHref: string }) {
       <Link href={homeHref} className="backlink">← 返回服務首頁</Link>
       <h1 className="page-title">📚 我的紀錄冊</h1>
       <p className="page-sub">選擇自己所屬支部；下次開啟會直接進入你揀選嘅紀錄冊。</p>
+      <ScoutSystemCredit variant="inline" />
       {storageError && <p className="warning-banner" role="status">此瀏覽器無法儲存選擇，下次可能需要重新選擇。</p>}
       {choosing ? (
         <div className="books-grid" aria-label="選擇紀錄冊">

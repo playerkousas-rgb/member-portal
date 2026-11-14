@@ -89,7 +89,8 @@ export default function ContactDistrictPage() {
     setLoading(true);
     setDirectoryError('');
     setDirectory(null);
-    api.listDistrictTroops().then((result) => {
+    // 撳「重試」時繞過快取，真正重新向區會核對公開名錄。
+    api.listDistrictTroops(reload > 0 ? { fresh: true } : undefined).then((result) => {
       if (cancelled) return;
       if (result.ok && result.data) {
         const latest = result.data;

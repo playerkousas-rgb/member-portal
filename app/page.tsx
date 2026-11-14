@@ -4,64 +4,54 @@ import AnnouncementBanner from '@/components/AnnouncementBanner';
 import PushSettings from '@/components/PushSettings';
 import SocialLinks from '@/components/SocialLinks';
 import InstallPrompt from '@/components/InstallPrompt';
+import ScoutSystemCredit from '@/components/ScoutSystemCredit';
 import { useDistrict } from '@/lib/useDistrict';
 
 const ANNOUNCEMENT_URL = 'https://scout-circulars.vercel.app/';
 
 const SERVICES = [
   {
-    href: '/books', icon: '📚', title: '我的紀錄冊',
-    desc: '選擇自己支部嘅個人紀錄冊，下次可直接開啟。',
+    href: '/books', icon: '📚', title: '我的紀錄冊', borrowed: true,
     tag: '個人紀錄', external: false,
   },
   {
     href: '/venue', icon: '🏛', title: '借用區總部',
-    desc: '先用唯讀 Teamup 月曆查看場地使用情況，再用表格遞交場地借用申請（內置借場守則及指引）。',
     tag: '查看／提交', external: false,
   },
   {
     href: '/stock', icon: '📦', title: '借用物資',
-    desc: '填一次申請人資料，可同時為多款 Sheet 物資填數量並一併遞交（內置借物資規定）。',
     tag: '公開提交', external: false,
   },
   {
     href: '/training', icon: '🎓', title: '訓練班報名',
-    desc: '瀏覽開放中嘅訓練班；報名會轉發到該班專屬收表 Sheet。',
     tag: '公開報名', external: false,
   },
   {
     href: 'https://districtbadgesystem30.vercel.app/', icon: '🎖', title: '專科徽章系統',
-    desc: '考生報考、主考評核、結果查詢（跳轉至 DBS 系統）。',
     tag: '外連', external: true,
   },
   {
-    href: 'https://gemini-woad-sigma.vercel.app/', icon: '✨', title: 'GEMINI 輔助系統',
-    desc: '開啟 GEMINI 輔助系統。',
+    href: 'https://gemini-woad-sigma.vercel.app/', icon: '✨', title: 'GEMINI 輔助系統', borrowed: true,
     tag: '外連', external: true,
   },
   {
-    href: 'https://scoutappstore.vercel.app/', icon: '🧰', title: 'SCOUT APP STORE',
-    desc: '瀏覽童軍小工具及其他資源，尋找適合各支部嘅應用。',
+    href: 'https://scoutappstore.vercel.app/', icon: '🧰', title: 'SCOUT APP STORE', borrowed: true,
     tag: '外連', external: true,
   },
   {
     href: '/activity', icon: '📋', title: '旅團活動知會',
-    desc: '將旅團戶外活動資料交區會存檔；已遞交嘅知會可喺本頁查看記錄（只顯示公開欄位）。',
     tag: '公開提交', external: false,
   },
   {
     href: '/troops', icon: '🧭', title: '區內旅團',
-    desc: '查閱區內旅團公開名錄：主辦機構、集會時間，以及 Instagram、Facebook 同旅團網頁。',
     tag: '公開名錄', external: false,
   },
   {
     href: '/contact-district', icon: '📨', title: '聯絡區會',
-    desc: '申請區幹部探訪旅團，或邀請區幹部出席活動；可自願提供回覆方法。',
     tag: '公開提交', external: false,
   },
   {
     href: '/feedback', icon: '💬', title: '你講我聽',
-    desc: '區務意見箱：可匿名留言、尋求支援；想收到回覆可留聯絡方法，亦可選擇保密直達區總監（DC）。',
     tag: '匿名留言', external: false,
   },
 ];
@@ -98,9 +88,7 @@ export default function HomePage() {
           <div style={{ fontSize: 38 }}>📢</div>
           <div>
             <h2 style={{ margin: 0 }}>查看通告</h2>
-            <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>
-              瀏覽總會、地域及各區嘅全港最新通告
-            </p>
+            <ScoutSystemCredit variant="inline" />
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
@@ -108,37 +96,36 @@ export default function HomePage() {
             className="btn"
             href={ANNOUNCEMENT_URL}
             target="_blank"
-            rel="noopener"
+            rel="noopener noreferrer"
             style={{ width: 'auto', padding: '11px 20px' }}
           >
             📢 瀏覽全港最新通告
           </a>
           <PushSettings />
-          <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
-            有新通告時用手機或電腦通知我
-          </span>
         </div>
       </section>
 
       <div className="grid">
         {SERVICES.map((s) =>
           s.external ? (
-            <a key={s.title} className="card" href={s.href} target="_blank" rel="noopener">
+            <a key={s.title} className="card" href={s.href} target="_blank" rel="noopener noreferrer">
               <span className="tag">{s.tag}</span>
               <div className="ico">{s.icon}</div>
               <h3>{s.title}</h3>
-              <div className="desc">{s.desc}</div>
+              {'borrowed' in s && s.borrowed && <span className="src">Scout System</span>}
             </a>
           ) : (
             <Link key={s.title} className="card" href={withDistrict(s.href)}>
               <span className="tag pub">{s.tag}</span>
               <div className="ico">{s.icon}</div>
               <h3>{s.title}</h3>
-              <div className="desc">{s.desc}</div>
+              {'borrowed' in s && s.borrowed && <span className="src">Scout System</span>}
             </Link>
           )
         )}
       </div>
+
+      <ScoutSystemCredit />
 
       <p className="hint" style={{ marginTop: 22 }}>
         有疑問？<Link href={withDistrict('/contact')} style={{ color: 'var(--p2)', fontWeight: 700 }}>查看聯絡及查詢資料</Link>。

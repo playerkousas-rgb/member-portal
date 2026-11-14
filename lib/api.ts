@@ -13,6 +13,39 @@ import type {
 
 type UnknownRecord = Record<string, unknown>;
 
+/**
+ * 唯讀 GET 嘅瀏覽器端短效快取（同一頁／前後頁切換即時有資料）。
+ * 只放已清洗嘅公開資料；提交成功會全部失效；重試可按 { fresh: true } 繞過。
+ * getSystem 唔快取（系統鎖定要即時）。時間比 server cache 短，兩層加埋仍然新鮮。
+ */
+export interface ReadOptions { fresh?: boolean }
+const CLIENT_TTL_MS: Record<string, number> = {
+  getConfig: 60_000,
+  getPublicInfo: 60_000,
+  listDistrictTroops: 60_000,
+  listVenues: 60_000,
+  listItems: 15_000,
+  listCourseLinks: 60_000,
+  listAnnouncements: 60_000,
+  listActivityNotices: 30_000,
+};
+interface ReadCacheEntry { value: ApiResult<unknown>; expiresAt: number }
+const readCache = new Map<string, ReadCacheEntry>();
+const readFlights = new Map<string, Promise<ApiResult<unknown>>>();
+
+function clientCacheEnabled(): boolean {
+  return process.env.MEMBER_PORTAL_DISABLE_CACHE !== '1';
+}
+function copyJson<T>(value: T): T {
+  if (value === undefined || value === null) return value;
+  try { return JSON.parse(JSON.stringify(value)) as T; } catch { return value; }
+}
+/** 提交成功後清走所有唯讀快取，等下一頁讀到最新庫存／知會／名錄。 */
+function invalidateReadCache(): void {
+  readCache.clear();
+  readFlights.clear();
+}
+
 function districtCode(): string {
   if (typeof window === 'undefined') return '';
   return resolveDistrictCode() || '';
@@ -46,20 +79,48 @@ async function readResult<T>(response: Response): Promise<ApiResult<T>> {
   }
 }
 
-async function callGet<T>(action: string, params: Record<string, string> = {}): Promise<ApiResult<T>> {
-  const url = new URL('/api/proxy', window.location.origin);
-  url.searchParams.set('districtCode', districtCode());
-  url.searchParams.set('action', action);
+async function callGet<T>(
+  action: string,
+  params: Record<string, string> = {},
+  options: ReadOptions = {},
+): Promise<ApiResult<T>> {
+  const cacheUrl = new URL('/api/proxy', window.location.origin);
+  cacheUrl.searchParams.set('districtCode', districtCode());
+  cacheUrl.searchParams.set('action', action);
   Object.entries(params).forEach(([key, value]) => {
-    if (value) url.searchParams.set(key, value);
+    if (value) cacheUrl.searchParams.set(key, value);
   });
+  const cacheKey = cacheUrl.searchParams.toString();
 
-  try {
-    const response = await fetch(url.toString(), { cache: 'no-store' });
-    return await readResult<T>(response);
-  } catch {
-    return { ok: false, error: '連線失敗，請稍後再試。' };
+  const url = new URL(cacheUrl.toString());
+  if (options.fresh) url.searchParams.set('refresh', '1');
+
+  const ttl = CLIENT_TTL_MS[action] || 0;
+  const useCache = ttl > 0 && clientCacheEnabled() && !options.fresh;
+  if (useCache) {
+    const hit = readCache.get(cacheKey);
+    if (hit && hit.expiresAt > Date.now()) return copyJson(hit.value) as ApiResult<T>;
+    const pending = readFlights.get(cacheKey);
+    if (pending) return pending as Promise<ApiResult<T>>;
   }
+
+  const request = (async (): Promise<ApiResult<T>> => {
+    try {
+      // 一般讀取交畀 HTTP cache（proxy 回應帶 s-maxage）；fresh 明確 no-store。
+      const response = await fetch(url.toString(), { cache: options.fresh ? 'no-store' : 'default' });
+      return await readResult<T>(response);
+    } catch {
+      return { ok: false, error: '連線失敗，請稍後再試。' };
+    }
+  })();
+
+  if (useCache) readFlights.set(cacheKey, request as Promise<ApiResult<unknown>>);
+  const result = await request;
+  if (useCache) readFlights.delete(cacheKey);
+  if (ttl > 0 && clientCacheEnabled() && result.ok && result.data !== undefined) {
+    readCache.set(cacheKey, { value: copyJson(result) as ApiResult<unknown>, expiresAt: Date.now() + ttl });
+  }
+  return result;
 }
 
 async function callPost<T>(action: string, body: UnknownRecord): Promise<ApiResult<T>> {
@@ -69,7 +130,9 @@ async function callPost<T>(action: string, body: UnknownRecord): Promise<ApiResu
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ districtCode: districtCode(), action, ...body }),
     });
-    return await readResult<T>(response);
+    const result = await readResult<T>(response);
+    if (result.ok) invalidateReadCache();
+    return result;
   } catch {
     return { ok: false, error: '連線失敗，請稍後再試。' };
   }
@@ -157,30 +220,30 @@ async function mapList<T>(
 }
 
 export const api = {
-  getConfig: (): Promise<ApiResult<DistrictConfig>> => callGet('getConfig'),
+  getConfig: (options?: ReadOptions): Promise<ApiResult<DistrictConfig>> => callGet('getConfig', {}, options),
   getSystem: (): Promise<ApiResult<SystemState>> => callGet('getSystem'),
 
-  listCourseLinks: (): Promise<ApiResult<CourseLink[]>> =>
-    mapList(callGet<unknown[]>('listCourseLinks'), mapCourse),
+  listCourseLinks: (options?: ReadOptions): Promise<ApiResult<CourseLink[]>> =>
+    mapList(callGet<unknown[]>('listCourseLinks', {}, options), mapCourse),
 
-  listVenues: (): Promise<ApiResult<Venue[]>> =>
-    mapList(callGet<unknown[]>('listVenues'), mapVenue),
+  listVenues: (options?: ReadOptions): Promise<ApiResult<Venue[]>> =>
+    mapList(callGet<unknown[]>('listVenues', {}, options), mapVenue),
 
-  listItems: (): Promise<ApiResult<Item[]>> =>
-    mapList(callGet<unknown[]>('listItems'), mapItem),
+  listItems: (options?: ReadOptions): Promise<ApiResult<Item[]>> =>
+    mapList(callGet<unknown[]>('listItems', {}, options), mapItem),
 
-  listAnnouncements: (): Promise<ApiResult<Announcement[]>> =>
-    mapList(callGet<unknown[]>('listAnnouncements'), mapAnnouncement),
+  listAnnouncements: (options?: ReadOptions): Promise<ApiResult<Announcement[]>> =>
+    mapList(callGet<unknown[]>('listAnnouncements', {}, options), mapAnnouncement),
 
   // 區內旅團公開名錄：proxy 已做白名單清洗，client 再行同一 sanitizer 做縱深防禦。
-  listDistrictTroops: async (): Promise<ApiResult<DistrictTroopsDirectory>> => {
-    const result = await callGet<unknown>('listDistrictTroops');
+  listDistrictTroops: async (options?: ReadOptions): Promise<ApiResult<DistrictTroopsDirectory>> => {
+    const result = await callGet<unknown>('listDistrictTroops', {}, options);
     if (!result.ok || !result.data) return { ok: false, error: result.error };
     return { ok: true, data: sanitizeTroopsDirectory(result.data) };
   },
 
-  listActivityNotices: (params: { year?: string; section?: string; nature?: string } = {}): Promise<ApiResult<ActivityNotice[]>> =>
-    mapList(callGet<unknown[]>('listActivityNotices', params), (value) => {
+  listActivityNotices: (params: { year?: string; section?: string; nature?: string } = {}, options?: ReadOptions): Promise<ApiResult<ActivityNotice[]>> =>
+    mapList(callGet<unknown[]>('listActivityNotices', params, options), (value) => {
       const row = asRecord(value);
       return {
         id: asString(row.id),
@@ -200,8 +263,8 @@ export const api = {
       };
     }),
 
-  getPublicInfo: async (): Promise<ApiResult<PublicInfo>> => {
-    const result = await callGet<unknown>('getPublicInfo');
+  getPublicInfo: async (options?: ReadOptions): Promise<ApiResult<PublicInfo>> => {
+    const result = await callGet<unknown>('getPublicInfo', {}, options);
     if (!result.ok || !result.data) return { ok: false, error: result.error };
     const row = asRecord(result.data);
     const troops = Array.isArray(row.troopList) ? row.troopList : [];

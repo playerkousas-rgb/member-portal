@@ -25,6 +25,22 @@
 
 `/course` 只係舊網址，會轉到 `/training`；`/calendar` 係舊網址，會轉到 `/venue#availability`。
 
+### 區內旅團：按主辦機構分類、篩選及排序（`/troops`）
+
+公開名錄 v1.3 每旅只有一個公開文字欄 `organizer`（主辦機構），冇獨立「旅類」欄位；本頁**唔改後台合約**，喺前端按主辦機構自動分成三類（`lib/troopCategory.ts` 純函數）：
+
+| 類別 | 判斷 | 對升團／轉旅嘅參考 |
+|---|---|---|
+| 🌱 公開旅 | 主辦機構標明「（公開旅）」，例如港島第196旅 | 一般公開招生 |
+| 🏛 機構旅 | 青少年／社區機構、會所、居民協會、管理公司、委員會等主辦 | 一般公開招生 |
+| 🏫 學校旅 | 中學／小學／幼稚園／書院／學校等主辦 | 多數只收校內學生，校外成員通常唔適用 |
+| ❔ 未分類 | 名錄未填主辦機構 | 未能判斷，請區會補充資料 |
+
+- 篩選 chips：全部／公開旅／機構旅／學校旅（有未分類資料時先顯示「未分類」），每格顯示數量；排序：按旅號／公開旅優先／機構旅優先／學校旅優先，組內一律按旅號數字排；選擇記喺 `localStorage`，下次開頁保留。
+- 每張旅團卡都有類別標記；篩選結果為 0 時有「顯示全部旅團」一鍵返回。
+- 分類**只影響顯示同排序**，唔會增刪旅團，亦唔會令後台 `publicVisible=FALSE` 嘅旅團曝光；名錄仍由 `listDistrictTroops` 全部清洗（`active`／`publicVisible`／內部備註一律唔流出）。
+- 分類係按公開文字推斷，唔代表個別旅團嘅收生保證；如區會日後喺後台加明確分類欄，`filterAndSortTroops` 已預留 explicit override 參數，唔使改 UI。
+
 ### 借場月曆：唯讀 Teamup 嵌入（單一申請入口）
 
 `/venue` 上方月曆**只供查看**，成員唔可以喺月曆新增、修改或提交 Teamup 事件，點擊日期亦唔會開出 Teamup Form：
@@ -109,6 +125,18 @@ browser（無 API Key）
 
 > 基本 rate limit 唔取代 CDN / WAF 或 Apps Script 端限流；正式上線仍建議加 Turnstile / reCAPTCHA。
 
+## 載入速度：唯讀 GET 短效快取＋靜態資源快取
+
+每個公開讀取原本都要行 `瀏覽器 → Vercel → Google Apps Script → Google Sheet`，一次往返遠慢過頁面本身。而家用以下幾層提速（各層都只喺本平台內實作），**動態提交同系統鎖定零快取**：
+
+1. **Server 端短效快取**（`app/api/proxy/route.ts`＋`lib/readCache.ts`）：只放 `sanitizeGet` 之後嘅公開唯讀資料，按「區／upstream／action／參數／（課程用）日期」做 key。TTL：庫存 15 秒、活動知會 30 秒、名錄／設定／課程／通告 60 秒、場地 120 秒。同一 key 嘅並行請求 single-flight 合併做一次上游呼叫；上游短暫失聯時可回 `X-Portal-Cache: STALE` 頂住（唔會當新資料用，亦唔會畀 CDN 散播）。`getSystem`、`POST` 提交、錯誤回應一律 `no-store`。
+2. **Vercel Edge / 瀏覽器**：可快取嘅 GET 回 `Cache-Control: public, max-age=0, s-maxage=20, stale-while-revalidate=20`，瀏覽器每次仍向 edge 確認；`X-Portal-Cache: HIT/MISS/STALE/BYPASS` 方便查證。
+3. **瀏覽器端 request cache**（`lib/api.ts`）：同一 SPA session 內重複開同一頁／前後頁切換即時用已清洗資料（30–60 秒，`getSystem` 唔快取）；任何提交成功即清空所有唯讀快取，避免讀到舊庫存／舊知會。
+
+Service worker 另外只快取本站 JS/CSS／圖示／manifest 等靜態檔（版本化 cache，每次部署自動換新）；HTML、RSC、`/api/*`、POST 同一律唔接管，所以離線唔保證開到平台，但任何一次連線載入嘅頁面同資料都一定係最新版本。更新流程見下節。
+
+想即時攞最新資料：前端「↻ 更新數量」／「重試」／「重新載入名錄」會用 `{ fresh: true }`，加 `?refresh=1` 一次過繞過瀏覽器、edge 同 server 快取；本機／自動測試可設 `MEMBER_PORTAL_DISABLE_CACHE=1` 完全停用快取。
+
 ## 對接狀態（與 scout-district-portal v4.32.0 核對）
 
 已對照管理系統 PR #54 合併 commit `03352ed` 的 `gs/Code.gs`；本次沒有修改管理系統程式。2026-10-27 公開 `getHealthCheck` 回報線上 GS v4.32.0 及 `visitRequestsReady=true`；健康檢查不能證明實際欄位上限或完成正式端到端連線。
@@ -174,20 +202,50 @@ npm audit
 
 > 目標：Vercel 儲存配額唔會爆，同時功能零倒退。
 
-1. **`.vercelignore` 係部署黑名單**——`.git`、`docs/`（補丁／合約文件）、`node_modules`、`.next`、`coverage`、`*.log/*.bak/*.tmp/*.old` 一律唔上部署包。新嘅開發腳本／測試輸出必須同步加入；
-2. **`public/` 檔案會原樣進部署包**——未引用嘅圖檔禁止提交；加新靜態資源前先 `grep -rn "檔名" app components public`；
-3. **圖示去重**——`sw.js` 與 manifest 共用同一個 `icon-192.png`（原本多存咗一份位元組級相同嘅 `notification-192.png`，已刪，省 49K）；
+1. **`.vercelignore` 係部署黑名單**——`.git`、`docs/`（補丁／合約文件）、`scripts/`（測試／loader）、`node_modules`、`.next`、`coverage`、`*.log/*.bak/*.tmp/*.old` 一律唔上部署包。新嘅開發腳本／測試輸出必須同步加入；
+2. **`public/` 檔案會原樣進部署包**——未引用嘅圖檔禁止提交；加新靜態資源前先 `grep -rn "檔名" app components public`。`/sw.js` 已改由 `app/sw.js/route.ts` 產生（要注入 build 版本），`public/sw.js` 已移除，唔好再加返；
+3. **圖示去重**——SW 通知圖示同 manifest 共用同一個 `icon-192.png`（原本多存咗一份位元組級相同嘅 `notification-192.png`，已刪，省 49K）；
 4. **依賴極簡**——`package.json` 只有 `next / react / react-dom / qrcode.react` 四個 runtime 依賴；加新依賴前要講明理由；
 5. **提交前體檢**——`npm run build`＋`npm run typecheck` 通過先可以 push。
 
 ### 服務平台內嵌四本 BOOK
 
-`/books` 使用各 BOOK 原有正式網站的 iframe，不會將紀錄冊或個人資料搬到本平台。各 BOOK 會依其部署的更新而更新。瀏覽器可能將內嵌頁面與直接開啟原網站的本機資料分開、阻擋第三方儲存或限制離線功能；使用前應在原網站先匯出完整備份，需要時在內嵌版本還原，並定期備份。若被阻擋，可使用頁面上的原網站連結。
-
-**BOOK 端設定**：各 BOOK 需要移除 `X-Frame-Options: DENY`／`SAMEORIGIN`，並設定 `Content-Security-Policy: frame-ancestors 'self' https://member-portal-sigma-swart.vercel.app`，再重新部署；如有其他正式網域，亦須逐一加入。預覽部署有不同網域，須在 BOOK 端按需要明確允許，或在正式網域測試；不要用 `*` 放寬所有網站。2026-11-14 查閱各 repo 的 main 時，CUBSBOOK、SCOUTBOOK、ROVERBOOK 已有白名單，VSBOOK 仍為 `DENY`；這並不代表正式部署已更新。本 repo 不會修改其他 repo 的部署設定。
+`/books` 使用各 BOOK 原有正式網站的 iframe，不會將紀錄冊或個人資料搬到本平台。各 BOOK 會依其部署的更新而更新。瀏覽器可能將內嵌頁面與直接開啟原網站的本機資料分開、阻擋第三方儲存或限制離線功能；使用前應在原網站先匯出完整備份，需要時在內嵌版本還原，並定期備份。如 iframe 被瀏覽器或原站設定阻擋，可使用頁面上的原網站連結；本 repo 不會修改其他 repo 嘅部署設定。
 
 選擇的支部只保存在平台所在瀏覽器／裝置的 localStorage；清除網站資料後須重新選擇。可在紀錄冊頁返回平台後更改選擇，不會刪除任何 BOOK 資料。
 
-### 平台更新
+### 平台更新｜加入主畫面後唔使重新下載／重裝
 
-平台每次 build 產生一個版本識別碼，頁面啟動、回到前台及每五分鐘透過不快取的 `/api/version` 檢查；亦可按「檢查平台更新」。有新版本時由用戶選擇重新載入，不需重新加入主畫面。重新載入會中斷未提交表格，應先儲存；不會刻意清除本機資料或推送訂閱。現有 service worker 只處理推送，不快取平台頁面；離線時不能保證開啟或更新平台。內嵌 BOOK 的更新仍由各 BOOK 各自處理，平台更新不會代替其更新機制。
+用戶指明只想參考 BOOK「加入主畫面之後，點樣唔使重新加入主畫面就更新」嘅生命週期，其他設定唔跟。以下係本平台自己嘅實作；SW 亦按載入速度需求快取靜態資源，但更新流程唔接管頁面或 API。
+
+1. `next.config.js` 每次 build 產生 `NEXT_PUBLIC_PORTAL_BUILD_VERSION`；`app/sw.js/route.ts` 將版本**寫入 SW 本文**（唔再係 `public/sw.js` 靜態檔），所以每次部署 `/sw.js` 嘅 byte 一定唔同，已安裝 APP 嘅 `reg.update()` 會即刻搵到新 worker。`/sw.js` 回 `Cache-Control: no-store`，註冊時用 `updateViaCache: 'none'`。
+2. `lib/pwa.ts`：開頁、回到前景（`visibilitychange`／`focus`）、重新連線同每 30 分鐘主動 `reg.update()`；新 worker 裝好停喺 `waiting`（install 唔 `skipWaiting`），派 `member-portal:pwa-update` 事件。
+3. `components/UpdateSettings.tsx`：兩條偵測線（worker `waiting`＋不快取的 `/api/version`，後者每 5 分鐘／手動按「檢查平台更新」）；任何一條見到新版都**只提示、唔自動重載**，顯示「立即更新」同「唔使重新加入主畫面或重新安裝」。
+4. 用戶按一下先 `postMessage({ type: 'SKIP_WAITING' })` → `activate` 用 `clients.claim()` 接手 → `controllerchange` 自動 reload 一次（3 秒後有後備重載）；冇 waiting worker 就直接重載攞新版 HTML。
+
+安全邊界：
+
+- **唔會靜靜自動重載**——本站有大量未提交表格，只喺用戶明確確認後先重載；提示會提醒先儲存草稿。
+- 唔刻意清除本機資料、草稿、BOOK 選擇或 Web Push 訂閱；SW 仍完整處理推播（`push`／`notificationclick`／`pushsubscriptionchange` 沿用通告圖書館協定）。
+- SW 嘅 `fetch` listener 只處理白名單內嘅同 origin 靜態檔；HTML、RSC、`/api/*`、POST、跨域一律唔接管，表單唔會讀到舊資料； hashed JS/CSS 用 cache-first，manifest／`push-client.js` 用 network-first。
+- 更新只換平台自己嘅檔案；內嵌四本 BOOK 嘅更新仍由各 BOOK 自己處理，平台更新唔會代替佢哋嘅更新機制。
+- 冇離線頁面回落：冇網絡就唔保證開到平台。
+
+`npm run test:pwa` 用 vm／jsdom 真跑一次「版本注入 → install 唔 skipWaiting → 查更新 → SKIP_WAITING → 更新提示」全流程，並驗證靜態快取邊界（頁面／API 唔快取）。
+
+## 服務來源鳴謝｜借用自 Scout System
+
+以下四項服務**借用自 Scout System**（© 2026 Scout System），唔係本區服務平台自研；平台只提供入口／嵌入，資料同更新由各原系統負責：
+
+| 服務 | 來源 |
+|---|---|
+| 📚 我的紀錄冊 | CUBSBOOK／SCOUTBOOK／VSBOOK／ROVERBOOK 四本電子紀錄冊 |
+| 📢 查看通告（含通告通知） | 通告圖書館 [scout-circulars](https://scout-circulars.vercel.app/) |
+| ✨ GEMINI 輔助系統 | [GEMINI 輔助系統](https://gemini-woad-sigma.vercel.app/) |
+| 🧰 SCOUT APP STORE | [SCOUT APP STORE](https://scoutappstore.vercel.app/)（Scout System 應用目錄） |
+
+首頁三張借用服務卡有極短 `Scout System` 小標籤、服務格下方有完整來源列，通告區同「我的紀錄冊」頁亦有短句來源（`components/ScoutSystemCredit.tsx`）。用戶確認 **Scout System 嘅來源網址就係 SCOUT APP STORE**：牌子名直接連去 [https://scoutappstore.vercel.app/](https://scoutappstore.vercel.app/)，唔用 `scoutsystem.vercel.app`；四個服務各自亦連去原站／入口，外連一律新分頁＋`rel="noopener noreferrer"`。本平台自身版權（`© 2026 SKWSCOUT`）維持不變。
+
+## 首頁卡片版面（手機）
+
+服務卡同守則卡嘅小字介紹已全部移除，只留圖示、名稱、標籤（借用服務另加極短 `Scout System` 徽章）；手機（`≤640px`）由每行 1 張改為**每行 2 張**，並縮細 padding／字級，減少向下滑嘅長度。說明內容仍然喺各服務頁同使用指南入面，冇刪走功能或守則原文。

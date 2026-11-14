@@ -32,17 +32,18 @@ export default function StockPage() {
   const [error, setError] = useState('');
   const [done, setDone] = useState<SubmissionResult | null>(null);
 
-  function loadItems() {
+  // fresh=true 會繞過前端／server 快取，畀「↻ 更新數量」真正讀到最新庫存。
+  function loadItems(fresh = false) {
     setLoading(true);
     setLoadError('');
-    api.listItems().then((result) => {
+    api.listItems(fresh ? { fresh: true } : undefined).then((result) => {
       if (result.ok && result.data) setItems(result.data);
       else setLoadError(result.error || '未能載入物資。');
       setLoading(false);
     });
   }
 
-  useEffect(loadItems, []);
+  useEffect(() => { loadItems(); }, []);
 
   const groups = useMemo(() => {
     const grouped: Record<string, Item[]> = {};
@@ -176,7 +177,7 @@ export default function StockPage() {
             setQuantities({});
             setPurpose('');
             setAgree(false);
-            loadItems();
+            loadItems(true);
           }}>
             再提交申請
           </button>
@@ -264,7 +265,7 @@ export default function StockPage() {
           <div className="step-heading inventory-heading">
             <span>2</span>
             <div><h2>選擇物資及填寫數量</h2><p>資料由區會物資 Sheet 即時讀取；不借用的項目留空即可。</p></div>
-            <button type="button" className="btn-ghost refresh-btn" onClick={loadItems} disabled={loading}>↻ 更新數量</button>
+            <button type="button" className="btn-ghost refresh-btn" onClick={() => loadItems(true)} disabled={loading}>↻ 更新數量</button>
           </div>
 
           {loading && <div className="empty">正在讀取最新物資資料…</div>}

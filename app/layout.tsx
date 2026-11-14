@@ -38,11 +38,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           data-app="成員系統"
           strategy="afterInteractive"
         />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(function(){})}`,
-          }}
-        />
+        {/* SW 註冊、前景查更新同「一按更新」由 components/UpdateSettings.tsx + lib/pwa.ts 統一處理
+            （push-client.js 需要時亦會 register 同一個 /sw.js，唔會產生第二個 worker）。 */}
         <Analytics />
       </body>
     </html>
