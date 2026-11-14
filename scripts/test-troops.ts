@@ -25,6 +25,10 @@ import {
 import TroopDialog from '../components/TroopDialog';
 import TroopSectionChips from '../components/TroopSectionChips';
 import type { DistrictTroop, DistrictUnit } from '../lib/types';
+import {
+  countTroopCategories, filterAndSortTroops, isTroopFilter, isTroopSort,
+  troopCategory, troopCategoryMeta, troopNumber,
+} from '../lib/troopCategory';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PROXY_ROUTE = path.join(HERE, '..', 'app', 'api', 'proxy', 'route.ts');
@@ -250,4 +254,79 @@ test('TroopDialog：團無資料時顯示回落提示同旅層級欄位；完全
     createElement(TroopDialog, { troop: blankTroop, unit: emptyUnit, onClose: () => {} }),
   );
   assert.ok(blank.includes('暫時未有更詳細資料'));
+});
+
+
+/* ── 按主辦機構分類／篩選／排序（2026-11-14） ───────────────────────── */
+
+function troop(t: string, organizer = ''): DistrictTroop {
+  return {
+    troop: t, label: `港島第${t}旅`, organizer,
+    meetingTime: '', instagramUrl: '', facebookUrl: '', websiteUrl: '', units: [],
+  };
+}
+
+test('分類：公開旅／機構旅／學校旅／未分類，按主辦機構文字判斷', () => {
+  assert.equal(troopCategory(troop('196', '香港童軍總會港島第一九六旅（公開旅）')), 'open');
+  assert.equal(troopCategory(troop('196', '香港童軍總會港島第一九六旅 (公開旅)')), 'open');
+  for (const org of [
+    '香港小童群益會康山兒童中心', '愛秩序灣居民協會', '東區撲滅罪行委員會',
+    '鯉景灣物業管理有限公司', '太古城物業管理聯絡議會', '香港中華基督教青年會康怡會所',
+    '協康會賽馬會家長資源中心',
+  ]) {
+    assert.equal(troopCategory(troop('82', org)), 'organization', `${org} 應為機構旅`);
+  }
+  for (const org of [
+    '慈幼中學', '聖馬可中學', '筲箕灣官立中學', '太古小學',
+    '中華基督教會基灣小學（愛蝶灣）', '佛教中華康山學校', '香港中國婦女會丘佐榮學校',
+    '港島民生書院', '維多利亞幼稚園', '基督教康山中英文幼稚園',
+  ]) {
+    assert.equal(troopCategory(troop('17', org)), 'school', `${org} 應為學校旅`);
+  }
+  assert.equal(troopCategory(troop('999', '')), 'unknown');
+  assert.equal(troopCategory(troop('998', '香港童軍總會（非公開旅）')), 'school');
+  // 日後後台提供明確分類就優先採用，唔靠估。
+  assert.equal(troopCategory(troop('17', '慈幼中學'), { troopType: 'open' }), 'open');
+  assert.equal(troopCategory(troop('17', ''), { category: '機構旅' }), 'organization');
+  assert.equal(troopCategoryMeta(troop('196', '（公開旅）')).recruit, true);
+  assert.equal(troopCategoryMeta(troop('17', '慈幼中學')).recruit, false);
+});
+
+test('分類計數同篩選：唔改動傳入陣列、唔放回未公開／私隱欄位', () => {
+  const rows = [
+    troop('196', '香港童軍總會港島第一九六旅（公開旅）'),
+    troop('82', '香港小童群益會康山兒童中心'),
+    troop('17', '慈幼中學'),
+    troop('999', ''),
+  ];
+  assert.deepEqual(countTroopCategories(rows), { all: 4, open: 1, organization: 1, school: 1, unknown: 1 });
+  assert.deepEqual(filterAndSortTroops(rows, 'open').map((r) => r.troop), ['196']);
+  assert.deepEqual(filterAndSortTroops(rows, 'organization').map((r) => r.troop), ['82']);
+  assert.deepEqual(filterAndSortTroops(rows, 'school').map((r) => r.troop), ['17']);
+  assert.deepEqual(filterAndSortTroops(rows, 'unknown').map((r) => r.troop), ['999']);
+  assert.equal(rows.length, 4);
+  assert.ok(!JSON.stringify(rows).includes('note'));
+});
+
+test('排序：按旅號用數字；公開旅／機構旅／學校旅優先，組內仍按旅號', () => {
+  const rows = [
+    troop('1095', '東區撲滅罪行委員會'),   // 機構旅
+    troop('17', '慈幼中學'),               // 學校旅
+    troop('196', '（公開旅）'),            // 公開旅
+    troop('82', '愛秩序灣居民協會'),       // 機構旅
+    troop('999', ''),                      // 未分類
+  ];
+  assert.deepEqual(filterAndSortTroops(rows, 'all', 'troop').map((r) => r.troop), ['17', '82', '196', '999', '1095']);
+  assert.deepEqual(filterAndSortTroops(rows, 'all', 'openFirst').map((r) => r.troop), ['196', '82', '1095', '17', '999']);
+  assert.deepEqual(filterAndSortTroops(rows, 'all', 'organizationFirst').map((r) => r.troop), ['82', '1095', '196', '17', '999']);
+  assert.deepEqual(filterAndSortTroops(rows, 'all', 'schoolFirst').map((r) => r.troop), ['17', '82', '1095', '196', '999']);
+  assert.equal(troopNumber(troop('1095')), 1095);
+  assert.equal(troopNumber(troop('n/a')), Number.MAX_SAFE_INTEGER);
+});
+
+test('篩選／排序值驗證：localStorage 嘅無效值唔會當合法', () => {
+  assert.equal(isTroopFilter('open'), true);
+  assert.equal(isTroopFilter('hack'), false);
+  assert.equal(isTroopSort('schoolFirst'), true);
+  assert.equal(isTroopSort('hack'), false);
 });

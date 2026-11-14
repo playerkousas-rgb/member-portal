@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { DISTRICTS } from '@/lib/district';
 import type { DistrictInfo } from '@/lib/district';
 import { sanitizeTroopsDirectory } from '@/lib/troops';
+import { ReadCache } from '@/lib/readCache';
 import { isVisitReference, prepareVisitRequest, validateVisitRequestDirectory } from '@/lib/visitRequest';
 
 /**
@@ -82,16 +83,71 @@ const MAX_BODY_BYTES = 4_500_000;
 const RATE_WINDOW_MS = 10 * 60 * 1000;
 const RATE_MAX = 20;
 
+/**
+ * 公開唯讀 GET 嘅短效快取 TTL（毫秒）。只放 sanitizeGet 之後嘅公開資料。
+ * getSystem 故意唔喺表入面：系統鎖定／維護狀態每次都要向後台確認。
+ * listItems 庫存量會因申請改變，TTL 最短；提交前 proxy 仍然會用即時 listItems 核對。
+ */
+const GET_CACHE_TTL: Record<string, number> = {
+  getConfig: 60_000,
+  getPublicInfo: 60_000,
+  listDistrictTroops: 60_000,
+  listVenues: 120_000,
+  listItems: 15_000,
+  listCourseLinks: 60_000,
+  listAnnouncements: 60_000,
+  listActivityNotices: 30_000,
+};
+/** Vercel Edge Network 可以重用嘅秒數；瀏覽器 max-age=0，每次仍會向 edge 確認。 */
+const EDGE_MAX_AGE_SECONDS = 20;
+const GET_CACHE_MAX_STALE_MS = 5 * 60_000;
+
 type JsonRecord = Record<string, unknown>;
 type RateEntry = { count: number; resetAt: number };
+type GetResult = { ok: true; data: unknown } | { ok: false; error: string };
 
 declare global {
   // Best-effort per-instance limiter. Production edge/CDN rate limiting can be added in front as a second layer.
   // eslint-disable-next-line no-var
   var __memberPortalRates: Map<string, RateEntry> | undefined;
+  var __memberPortalGetCache: ReadCache<unknown> | undefined;
 }
 const rateStore = globalThis.__memberPortalRates || new Map<string, RateEntry>();
 globalThis.__memberPortalRates = rateStore;
+// 同一 server instance（Vercel warm lambda）共用；部署新版本會係新 instance，唔會撈到舊 sanitizer 結果。
+const getCache = globalThis.__memberPortalGetCache || new ReadCache<unknown>({ maxStaleMs: GET_CACHE_MAX_STALE_MS });
+globalThis.__memberPortalGetCache = getCache;
+
+/** 自動測試／本機除錯可用 MEMBER_PORTAL_DISABLE_CACHE=1 完全停用快取。 */
+function cacheEnabled(): boolean {
+  return process.env.MEMBER_PORTAL_DISABLE_CACHE !== '1';
+}
+
+function getCacheKey(districtCode: string, apiBase: string, action: string, params: URLSearchParams): string {
+  // listCourseLinks 嘅 sanitizeGet 會用今日日期濾走截止課程，跨日一定要換 key。
+  const day = action === 'listCourseLinks' ? new Date().toISOString().slice(0, 10) : '';
+  return [districtCode, apiBase, action, params.toString(), day].join('|');
+}
+
+/** 上游失聯時頂住嘅舊資料：標記清楚，而且唔好畀 CDN 繼續散播。 */
+function staleGetJson(data: unknown) {
+  const response = noStoreJson({ ok: true, data });
+  response.headers.set('X-Portal-Cache', 'STALE');
+  return response;
+}
+
+function cacheableGetJson(data: unknown, state: string) {
+  return NextResponse.json(
+    { ok: true, data },
+    {
+      headers: {
+        'Cache-Control': `public, max-age=0, s-maxage=${EDGE_MAX_AGE_SECONDS}, stale-while-revalidate=${EDGE_MAX_AGE_SECONDS}`,
+        'X-Content-Type-Options': 'nosniff',
+        'X-Portal-Cache': state,
+      },
+    },
+  );
+}
 
 function noStoreJson(body: unknown, status = 200) {
   return NextResponse.json(body, {
@@ -555,12 +611,46 @@ export async function GET(request: NextRequest) {
     if (value) allowedParams.set(key, value);
   }
 
-  try {
+  // ── 唯讀 GET 加速 ──────────────────────────────────────────────────
+  // refresh=1 由前端「重試／更新數量」掣加上，明確繞過 server cache 同 CDN。
+  const ttl = GET_CACHE_TTL[action] || 0;
+  const forceFresh = searchParams.get('refresh') === '1';
+  const useCache = ttl > 0 && cacheEnabled() && !forceFresh;
+  const cacheKey = useCache ? getCacheKey(districtCode, apiBaseFor(district), action, allowedParams) : '';
+
+  if (useCache) {
+    const hit = getCache.lookup(cacheKey);
+    if (hit?.state === 'fresh') return cacheableGetJson(hit.value, 'HIT');
+  }
+
+  const load = async (): Promise<GetResult> => {
     const upstream = await fetchGet(apiBaseFor(district), apiKey, action, allowedParams);
-    if (!upstream.ok) return noStoreJson({ ok: false, error: safeUpstreamError(upstream.error, apiKey, '後台未能處理請求。') }, 502);
-    return noStoreJson({ ok: true, data: sanitizeGet(action, upstream.data) });
+    if (!upstream.ok) {
+      return { ok: false, error: safeUpstreamError(upstream.error, apiKey, '後台未能處理請求。') };
+    }
+    return { ok: true, data: sanitizeGet(action, upstream.data) };
+  };
+
+  try {
+    // single-flight：同時開同一頁嘅人共用一次 Apps Script 呼叫。
+    const result: GetResult = useCache
+      ? await (getCache.run(cacheKey, load) as Promise<GetResult>)
+      : await load();
+    if (!result.ok) {
+      const stale = useCache ? getCache.lookup(cacheKey) : null;
+      if (stale) return staleGetJson(stale.value);
+      return noStoreJson({ ok: false, error: result.error }, 502);
+    }
+    if (useCache) getCache.set(cacheKey, result.data, ttl);
+    if (!ttl || forceFresh) return noStoreJson({ ok: true, data: result.data });
+    return cacheableGetJson(result.data, 'MISS');
   } catch (error) {
-    return noStoreJson({ ok: false, error: safeUpstreamError(error instanceof Error ? error.message : '', apiKey, 'Proxy fetch failed') }, 502);
+    const stale = useCache ? getCache.lookup(cacheKey) : null;
+    if (stale) return staleGetJson(stale.value);
+    return noStoreJson(
+      { ok: false, error: safeUpstreamError(error instanceof Error ? error.message : '', apiKey, 'Proxy fetch failed') },
+      502,
+    );
   }
 }
 

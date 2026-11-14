@@ -7,11 +7,14 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "npm run test:troops && npm run test:visit && npm run test:install && npm run test:books-update",
-    "test:troops": "node --import ./scripts/tsx-register.mjs scripts/test-troops.ts",
+    "test": "npm run test:troops && npm run test:visit && npm run test:install && npm run test:books-update && npm run test:cache && npm run test:pwa && npm run test:home",
+    "test:home": "node --import ./scripts/tsx-register.mjs scripts/test-home-cards.mjs",
+    "test:troops": "node --import ./scripts/tsx-register.mjs scripts/test-troops.ts && node --import ./scripts/tsx-register.mjs scripts/test-troops-ui.mjs",
     "test:visit": "node --import ./scripts/tsx-register.mjs scripts/test-visit-request.ts && node --import ./scripts/tsx-register.mjs scripts/test-visit-ui.mjs",
     "test:install": "node --import ./scripts/tsx-register.mjs scripts/test-install-ui.mjs",
-    "test:books-update": "node --import ./scripts/tsx-register.mjs scripts/test-books-update-ui.mjs"
+    "test:books-update": "node --import ./scripts/tsx-register.mjs scripts/test-books-update-ui.mjs",
+    "test:cache": "node --import ./scripts/tsx-register.mjs scripts/test-read-cache.ts",
+    "test:pwa": "node --import ./scripts/tsx-register.mjs scripts/test-sw-source.mjs && node --import ./scripts/tsx-register.mjs scripts/test-pwa-ui.mjs"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",

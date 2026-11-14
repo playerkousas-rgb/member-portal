@@ -6,7 +6,7 @@ import { GET, POST } from '../app/api/proxy/route';
 import { sanitizeTroopsDirectory } from '../lib/troops';
 import { prepareVisitRequest, validateVisitRequestDirectory } from '../lib/visitRequest';
 
-Object.assign(process.env, { NODE_ENV: 'test' });
+Object.assign(process.env, { NODE_ENV: 'test', MEMBER_PORTAL_DISABLE_CACHE: '1' });
 process.env.MEMBER_DEV_APIBASE = 'http://mock-gs.test/exec';
 const KEY = 'test-server-only-key +%=水';
 process.env.MEMBER_SKW_APIKEY = KEY;

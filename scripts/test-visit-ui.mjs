@@ -15,7 +15,7 @@ globalThis.FormData = dom.window.FormData;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 dom.window.confirm = () => true;
 dom.window.scrollTo = () => {};
-Object.assign(process.env, { NODE_ENV: 'test', MEMBER_DEV_APIBASE: 'http://mock-gs.test/exec', MEMBER_SKW_APIKEY: 'ui-test-server-key' });
+Object.assign(process.env, { NODE_ENV: 'test', MEMBER_DEV_APIBASE: 'http://mock-gs.test/exec', MEMBER_SKW_APIKEY: 'ui-test-server-key', MEMBER_PORTAL_DISABLE_CACHE: '1' });
 
 const { render, screen, cleanup, within, waitFor } = await import('@testing-library/react');
 const userEvent = (await import('@testing-library/user-event')).default;
