@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import DistrictPicker from '@/components/DistrictPicker';
 import ReportLink from '@/components/ReportLink';
 import SocialLinks from '@/components/SocialLinks';
+import UpdateSettings from '@/components/UpdateSettings';
 import { api } from '@/lib/api';
 import {
   DISTRICT_LIST, MULTI_DISTRICT_MODE, PLATFORM_COPYRIGHT, PLATFORM_NAME,
@@ -14,7 +15,7 @@ import {
 import type { DistrictConfig, SystemState } from '@/lib/types';
 import { useDistrict } from '@/lib/useDistrict';
 
-const PUBLIC_PATHS = ['/', '/districts', '/guide', '/rules', '/calendar', '/contact', '/rules/venue', '/rules/venue-terms', '/rules/cctv', '/rules/stock'];
+const PUBLIC_PATHS = ['/', '/books', '/districts', '/guide', '/rules', '/calendar', '/contact', '/rules/venue', '/rules/venue-terms', '/rules/cctv', '/rules/stock'];
 const NAV_ITEMS = [
   { href: '/', label: '🏠 公開服務' },
   { href: '/districts', label: '🌏 使用地區' },
@@ -78,7 +79,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
               <span className="brand-logo" aria-hidden="true">
                 <img src="/icons/logo-256.png" alt="" width={26} height={26} />
               </span>
-              {title} — 成員服務
+              {title === PLATFORM_NAME ? PLATFORM_NAME : `${title} — 服務平台`}
             </Link>
             <div className="sub">
               {MULTI_DISTRICT_MODE
@@ -114,6 +115,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
       </header>
 
       <main className="shell-main">
+        <UpdateSettings />
         {connectionError && districtCode && !system?.locked && (
           <div className="warning-banner" role="status">
             ⚠️ 未能連接區會後台；資料讀取及表單提交可能暫時不可用。

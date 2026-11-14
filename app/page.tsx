@@ -3,11 +3,22 @@ import Link from 'next/link';
 import AnnouncementBanner from '@/components/AnnouncementBanner';
 import PushSettings from '@/components/PushSettings';
 import SocialLinks from '@/components/SocialLinks';
+import InstallPrompt from '@/components/InstallPrompt';
 import { useDistrict } from '@/lib/useDistrict';
 
 const ANNOUNCEMENT_URL = 'https://scout-circulars.vercel.app/';
 
 const SERVICES = [
+  {
+    href: 'https://gemini-woad-sigma.vercel.app/', icon: '✨', title: 'GEMINI 輔助系統',
+    desc: '開啟 GEMINI 輔助系統。',
+    tag: '外連', external: true,
+  },
+  {
+    href: 'https://scoutappstore.vercel.app/', icon: '🧰', title: 'SCOUT APP STORE',
+    desc: '瀏覽童軍小工具及其他資源，尋找適合各支部嘅應用。',
+    tag: '外連', external: true,
+  },
   {
     href: '/venue', icon: '🏛', title: '借用區總部',
     desc: '先用唯讀 Teamup 月曆查看場地使用情況，再用表格遞交場地借用申請（內置借場守則及指引）。',
@@ -44,6 +55,11 @@ const SERVICES = [
     tag: '公開提交', external: false,
   },
   {
+    href: '/books', icon: '📚', title: '我的紀錄冊',
+    desc: '選擇自己支部嘅個人紀錄冊，下次可直接開啟。',
+    tag: '個人紀錄', external: false,
+  },
+  {
     href: '/feedback', icon: '💬', title: '你講我聽',
     desc: '區務意見箱：可匿名留言、尋求支援；想收到回覆可留聯絡方法，亦可選擇保密直達區總監（DC）。',
     tag: '匿名留言', external: false,
@@ -58,7 +74,7 @@ export default function HomePage() {
       <AnnouncementBanner />
 
       <div className="hero">
-        <h1>{district?.name} — 成員服務 👋</h1>
+        <h1>{district?.name ? `${district.name} — 服務平台` : '服務平台'} 👋</h1>
         <p>呢度係區為旅團及成員提供嘅自助服務入口。填表即可提交，無需登入；區會收到後會跟進處理。</p>
         <SocialLinks
           links={district?.links}
@@ -68,6 +84,8 @@ export default function HomePage() {
           contactHref={withDistrict('/contact')}
         />
       </div>
+
+      <InstallPrompt />
 
       <section
         className="panel"

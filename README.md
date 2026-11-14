@@ -1,4 +1,4 @@
-# 成員服務門戶（member-portal）
+# 服務平台（member-portal）
 
 區內童軍、旅團及成員使用嘅**完全公開服務入口**。無帳戶、無登入、無管理功能。
 
@@ -179,3 +179,15 @@ npm audit
 3. **圖示去重**——`sw.js` 與 manifest 共用同一個 `icon-192.png`（原本多存咗一份位元組級相同嘅 `notification-192.png`，已刪，省 49K）；
 4. **依賴極簡**——`package.json` 只有 `next / react / react-dom / qrcode.react` 四個 runtime 依賴；加新依賴前要講明理由；
 5. **提交前體檢**——`npm run build`＋`npm run typecheck` 通過先可以 push。
+
+### 服務平台內嵌四本 BOOK
+
+`/books` 使用各 BOOK 原有正式網站的 iframe，不會將紀錄冊或個人資料搬到本平台。各 BOOK 會依其部署的更新而更新。瀏覽器可能將內嵌頁面與直接開啟原網站的本機資料分開、阻擋第三方儲存或限制離線功能；使用前應在原網站先匯出完整備份，需要時在內嵌版本還原，並定期備份。若被阻擋，可使用頁面上的原網站連結。
+
+**BOOK 端設定**：各 BOOK 需要移除 `X-Frame-Options: DENY`／`SAMEORIGIN`，並設定 `Content-Security-Policy: frame-ancestors 'self' https://member-portal-sigma-swart.vercel.app`，再重新部署；如有其他正式網域，亦須逐一加入。預覽部署有不同網域，須在 BOOK 端按需要明確允許，或在正式網域測試；不要用 `*` 放寬所有網站。2026-11-14 查閱各 repo 的 main 時，CUBSBOOK、SCOUTBOOK、ROVERBOOK 已有白名單，VSBOOK 仍為 `DENY`；這並不代表正式部署已更新。本 repo 不會修改其他 repo 的部署設定。
+
+選擇的支部只保存在平台所在瀏覽器／裝置的 localStorage；清除網站資料後須重新選擇。可在紀錄冊頁返回平台後更改選擇，不會刪除任何 BOOK 資料。
+
+### 平台更新
+
+平台每次 build 產生一個版本識別碼，頁面啟動、回到前台及每五分鐘透過不快取的 `/api/version` 檢查；亦可按「檢查平台更新」。有新版本時由用戶選擇重新載入，不需重新加入主畫面。重新載入會中斷未提交表格，應先儲存；不會刻意清除本機資料或推送訂閱。現有 service worker 只處理推送，不快取平台頁面；離線時不能保證開啟或更新平台。內嵌 BOOK 的更新仍由各 BOOK 各自處理，平台更新不會代替其更新機制。
