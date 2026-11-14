@@ -14,7 +14,11 @@ const EMBED_FRAME_ANCESTORS = [
   'https://skwscout.org.hk',
 ].join(' ');
 
+// 每次 build 生成唯一版本；同時編入前端及版本 API，避免依賴 git commit 或清除用戶資料。
+const BUILD_VERSION = require('node:crypto').randomUUID();
+
 const nextConfig = {
+  env: { NEXT_PUBLIC_PORTAL_BUILD_VERSION: BUILD_VERSION },
   images: { unoptimized: true },
   async headers() {
     return [

@@ -1,15 +1,14 @@
 import './globals.css';
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Suspense } from 'react';
 import Script from 'next/script';
 import { Analytics } from '@vercel/analytics/next';
 import Shell from '@/components/Shell';
 
 export const metadata: Metadata = {
-  title: '成員服務門戶',
+  title: '服務平台',
   description: '筲箕灣區公開成員服務：通告、聯絡資料、場地及物資借用、訓練班報名及旅團活動知會',
   manifest: '/manifest.webmanifest',
-  themeColor: '#02133e',
   icons: {
     icon: [
       { url: '/icons/favicon-32.png', sizes: '32x32', type: 'image/png' },
@@ -17,8 +16,10 @@ export const metadata: Metadata = {
     ],
     apple: '/icons/apple-touch-icon.png',
   },
-  other: { 'apple-mobile-web-app-capable': 'yes', 'apple-mobile-web-app-title': '童軍成員服務' },
+  other: { 'apple-mobile-web-app-capable': 'yes', 'apple-mobile-web-app-title': '服務平台' },
 };
+
+export const viewport: Viewport = { themeColor: '#02133e' };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
