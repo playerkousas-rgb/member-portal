@@ -36,14 +36,30 @@ a{color:inherit;text-decoration:none;}
 .hero h1{font-size:22px;margin-bottom:6px;}
 .hero p{font-size:13px;color:#dbeafe;}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px;}
-.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;position:relative;
-  box-shadow:0 1px 3px rgba(15,23,42,.06);transition:.15s;cursor:pointer;display:block;}
+.card-order-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:2px 0 12px;}
+.card-order-hint{font-size:11.5px;color:var(--muted);}
+.card-order-actions{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto;}
+.order-btn{border:1px solid var(--line);background:#fff;color:var(--slate);border-radius:999px;padding:4px 11px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s;}
+.order-btn:hover{border-color:#93c5fd;color:var(--p);}
+.order-btn.active{background:var(--p);border-color:var(--p);color:#fff;}
+.order-btn.reset{color:var(--p2);border-color:#bfdbfe;background:#eff6ff;}
+.card-item{position:relative;display:flex;}
+.card-item.is-dragging{opacity:.45;transform:scale(.98);}
+.card-item.is-drop-target .card{border-color:var(--p2);box-shadow:0 0 0 2px rgba(21,101,192,.35);background:#f8fbff;}
+.card-item.reorder-active{touch-action:none;user-select:none;-webkit-user-select:none;}
+.card-item.reorder-active .card{border-style:dashed;border-color:#93c5fd;cursor:grab;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 18px 34px;position:relative;
+  box-shadow:0 1px 3px rgba(15,23,42,.06);transition:.15s;cursor:pointer;display:flex;flex-direction:column;width:100%;}
 .card:hover{box-shadow:0 8px 20px rgba(0,51,102,.16);transform:translateY(-3px);}
 .card .ico{font-size:30px;}
 .card h3{font-size:16px;margin:8px 0 0;word-break:break-word;}
-.card .src{display:inline-block;margin-top:5px;font-size:9.5px;font-weight:700;letter-spacing:.02em;color:var(--p2);background:#eef4ff;border-radius:999px;padding:2px 7px;}
+.card .src{display:inline-block;align-self:flex-start;margin-top:6px;font-size:9.5px;font-weight:700;letter-spacing:.02em;color:var(--p2);background:#eef4ff;border-radius:999px;padding:2px 7px;}
 .card .tag{position:absolute;top:14px;right:14px;font-size:10px;font-weight:800;padding:3px 9px;border-radius:999px;background:#e0e7ff;color:#4338ca;}
 .card .tag.pub{background:#dcfce7;color:#15803d;}
+.drag-grip{position:absolute;right:10px;bottom:8px;border:1px solid transparent;background:transparent;color:#94a3b8;
+  border-radius:7px;padding:2px 7px;font-size:14px;line-height:1.2;cursor:grab;touch-action:none;transition:.15s;font-family:inherit;}
+.card-item:hover .drag-grip,.drag-grip:focus-visible,.card-item.reorder-active .drag-grip{color:var(--p2);background:#f1f5f9;border-color:#cbd5e1;}
+.drag-grip:active{cursor:grabbing;}
 /* 借用服務嘅來源標示（Scout System） */
 .scout-credit{font-size:11.5px;line-height:1.7;color:var(--muted);margin:12px 0 0;
   border-top:1px dashed var(--line);padding-top:10px;}
@@ -280,11 +296,13 @@ button.contact-primary-card{width:100%;font:inherit;text-align:left;cursor:point
   /* 手機：移除小字介紹後每行並排兩張卡，減少向下滑 */
   .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
   .rules-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
-  .card{padding:12px 10px;border-radius:12px;box-shadow:none;}
+  .card{padding:12px 10px 30px;border-radius:12px;box-shadow:none;}
   .card .ico{font-size:24px;}
   .card h3{font-size:13.5px;line-height:1.35;margin-top:6px;}
   .card .src{font-size:8.5px;padding:1px 5px;margin-top:4px;}
   .card .tag{font-size:9px;padding:2px 6px;top:8px;right:8px;}
+  .drag-grip{right:6px;bottom:6px;padding:2px 6px;font-size:13px;}
+  .card-order-hint{font-size:11px;flex-basis:100%;}
   .rule-card{padding:12px 10px;border-radius:12px;}
   .rule-card .r-ico{font-size:22px;}
   .rule-card h3{font-size:13.5px;line-height:1.35;}

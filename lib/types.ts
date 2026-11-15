@@ -25,6 +25,8 @@ export interface SubmissionMeta {
 export interface SubmissionResult {
   /** 批次申請編號；單項表單則為該項記錄編號。 */
   refCode: string;
+  /** 借場遞交確認電郵是否已由後台成功寄出（舊版 GS 不回傳時為 undefined）。 */
+  emailSent?: boolean;
   /** 多項物資申請寫入 Sheet 後，各項記錄的原始編號。 */
   refCodes?: string[];
   submittedCount?: number;
@@ -91,24 +93,6 @@ export interface Announcement {
   pinned: boolean;
   /** 'info' | 'warning' | 'important' — 控制顯示顏色 */
   level: 'info' | 'warning' | 'important';
-}
-
-/** 活動知會（公開欄位；領袖聯絡資料唔會經 member proxy 回傳） */
-export interface ActivityNotice {
-  id: string;
-  refCode: string;
-  year: string;
-  section: string;
-  nature: string;
-  troop: string;
-  activityName: string;
-  startDateTime: string;
-  endDateTime: string;
-  location: string;
-  membersCount: number;
-  leadersCount: number;
-  parentsCount: number;
-  submittedAt: string;
 }
 
 /** 支部代碼（對照 GS VISIT_SECTIONS） */

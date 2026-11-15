@@ -40,7 +40,7 @@ function readProxyGetAllowlist(): string[] {
   return [...block.matchAll(/'([A-Za-z0-9_]+)'/g)].map((m) => m[1]);
 }
 
-test('proxy allowlist：名錄 action 獲放行，白名單同預期公開清單精確一致（管理 action 唔可以混入）', () => {
+test('proxy allowlist：名錄 action 獲放行，白名單同預期公開清單精確一致（管理 action 同已停用 listActivityNotices 唔可以混入）', () => {
   const allow = readProxyGetAllowlist();
   assert.deepEqual(
     [...allow].sort(),
@@ -48,7 +48,6 @@ test('proxy allowlist：名錄 action 獲放行，白名單同預期公開清單
       'getConfig',
       'getPublicInfo',
       'getSystem',
-      'listActivityNotices',
       'listAnnouncements',
       'listCourseLinks',
       'listDistrictTroops',

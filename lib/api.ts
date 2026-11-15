@@ -6,7 +6,7 @@ import { resolveDistrictCode } from './district';
 import { sanitizeTroopsDirectory } from './troops';
 import type { VisitRequestPayload } from './visitRequest';
 import type {
-  Announcement, ApiResult, ActivityNotice, CourseLink, DistrictConfig,
+  Announcement, ApiResult, CourseLink, DistrictConfig,
   DistrictTroopsDirectory, Item,
   PublicInfo, SubmissionMeta, SubmissionResult, SystemState, Venue,
 } from './types';
@@ -27,7 +27,6 @@ const CLIENT_TTL_MS: Record<string, number> = {
   listItems: 15_000,
   listCourseLinks: 60_000,
   listAnnouncements: 60_000,
-  listActivityNotices: 30_000,
 };
 interface ReadCacheEntry { value: ApiResult<unknown>; expiresAt: number }
 const readCache = new Map<string, ReadCacheEntry>();
@@ -40,7 +39,7 @@ function copyJson<T>(value: T): T {
   if (value === undefined || value === null) return value;
   try { return JSON.parse(JSON.stringify(value)) as T; } catch { return value; }
 }
-/** 提交成功後清走所有唯讀快取，等下一頁讀到最新庫存／知會／名錄。 */
+/** 提交成功後清走所有唯讀快取，等下一頁讀到最新庫存／名錄。 */
 function invalidateReadCache(): void {
   readCache.clear();
   readFlights.clear();
@@ -241,27 +240,6 @@ export const api = {
     if (!result.ok || !result.data) return { ok: false, error: result.error };
     return { ok: true, data: sanitizeTroopsDirectory(result.data) };
   },
-
-  listActivityNotices: (params: { year?: string; section?: string; nature?: string } = {}, options?: ReadOptions): Promise<ApiResult<ActivityNotice[]>> =>
-    mapList(callGet<unknown[]>('listActivityNotices', params, options), (value) => {
-      const row = asRecord(value);
-      return {
-        id: asString(row.id),
-        refCode: asString(row.refCode),
-        year: asString(row.year),
-        section: asString(row.section || row.sections),
-        nature: asString(row.nature),
-        troop: asString(row.troop),
-        activityName: asString(row.activityName),
-        startDateTime: asString(row.startDateTime),
-        endDateTime: asString(row.endDateTime),
-        location: asString(row.location),
-        membersCount: asNumber(row.membersCount),
-        leadersCount: asNumber(row.leadersCount),
-        parentsCount: asNumber(row.parentsCount),
-        submittedAt: asString(row.submittedAt).slice(0, 30),
-      };
-    }),
 
   getPublicInfo: async (options?: ReadOptions): Promise<ApiResult<PublicInfo>> => {
     const result = await callGet<unknown>('getPublicInfo', {}, options);

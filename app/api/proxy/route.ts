@@ -25,12 +25,11 @@ const GET_ACTIONS = new Set([
   'listVenues',
   'listItems',
   'listAnnouncements',
-  'listActivityNotices',
   'listDistrictTroops',
 ]);
 
-/** GET 參數白名單：目前只有 listActivityNotices 嘅年份／支部／性質過濾會轉發去後台 */
-const GET_PARAM_WHITELIST = ['year', 'section', 'nature'];
+/** GET 參數白名單：公開 GET 目前只需 districtCode／action（無額外查詢過濾參數需轉發後台）。 */
+const GET_PARAM_WHITELIST: string[] = [];
 
 const POST_FIELDS: Record<string, string[]> = {
   submitVenueRequest: [
@@ -70,7 +69,7 @@ const POST_FIELDS: Record<string, string[]> = {
 };
 
 const REQUIRED_FIELDS: Record<string, string[]> = {
-  submitVenueRequest: ['venueId', 'startDate', 'endDate', 'name', 'phone', 'activityName', 'attendeeCount'],
+  submitVenueRequest: ['venueId', 'startDate', 'endDate', 'name', 'phone', 'email', 'activityName', 'attendeeCount'],
   submitStockRequest: ['itemId', 'qty', 'borrowDate', 'returnDate', 'name', 'phone'],
   submitStockBatchRequest: ['borrowDate', 'returnDate', 'name', 'phone'],
   submitActivityNotice: ['section', 'nature', 'troop', 'activityName', 'startDateTime', 'endDateTime', 'location', 'leaderName', 'leaderPhone'],
@@ -96,7 +95,6 @@ const GET_CACHE_TTL: Record<string, number> = {
   listItems: 15_000,
   listCourseLinks: 60_000,
   listAnnouncements: 60_000,
-  listActivityNotices: 30_000,
 };
 /** Vercel Edge Network 可以重用嘅秒數；瀏覽器 max-age=0，每次仍會向 edge 確認。 */
 const EDGE_MAX_AGE_SECONDS = 20;
@@ -321,28 +319,6 @@ function sanitizeGet(action: string, data: unknown): unknown {
   }
   if (action === 'listVenues') return rows.map(publicVenue).filter((venue) => venue.venueId && venue.name);
   if (action === 'listItems') return rows.map(publicItem).filter((item) => item.itemId && item.name);
-  if (action === 'listActivityNotices') {
-    // 只回傳公開欄位；leaderName／leaderPhone／leaderEmail／note 一律唔可以流出（合約規定）。
-    return rows.map((value) => {
-      const row = asRecord(value);
-      return {
-        id: text(row.id),
-        refCode: text(row.refCode),
-        year: text(row.year),
-        section: text(row.section || row.sections),
-        nature: text(row.nature),
-        troop: text(row.troop),
-        activityName: text(row.activityName),
-        startDateTime: text(row.startDateTime),
-        endDateTime: text(row.endDateTime),
-        location: text(row.location),
-        membersCount: number(row.membersCount),
-        leadersCount: number(row.leadersCount),
-        parentsCount: number(row.parentsCount),
-        submittedAt: text(row.submittedAt).slice(0, 30),
-      };
-    }).filter((notice) => notice.id && notice.troop && notice.activityName);
-  }
   if (action === 'listAnnouncements') {
     return rows.map(publicAnnouncement).filter((ann) => ann.id && ann.title)
       .sort((a, b) => b.date.localeCompare(a.date));
@@ -461,6 +437,10 @@ function validateSubmission(action: string, body: JsonRecord): string {
     return '請先閱讀並同意借用規定。';
   }
   if (action === 'submitVenueRequest') {
+    const email = text(body.email).trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return '請輸入有效電郵地址，以便接收提交確認及入場密碼。';
+    }
     const attendees = number(body.attendeeCount);
     if (!Number.isInteger(attendees) || attendees < 1 || attendees > 9999) {
       return '參加人數必須係 1 至 9999 之間嘅整數。';
@@ -761,7 +741,15 @@ export async function POST(request: NextRequest) {
     const upstream = await fetchPost(apiBaseFor(district), apiKey, action, payload);
     if (!upstream.ok) return noStoreJson({ ok: false, error: safeUpstreamError(upstream.error, apiKey, '提交失敗。') }, 502);
     const result = asRecord(upstream.data);
-    return noStoreJson({ ok: true, data: { refCode: text(result.refCode) } });
+    return noStoreJson({
+      ok: true,
+      data: {
+        refCode: text(result.refCode),
+        ...(action === 'submitVenueRequest' && typeof result.emailSent === 'boolean'
+          ? { emailSent: result.emailSent }
+          : {}),
+      },
+    });
   } catch (error) {
     return noStoreJson({ ok: false, error: safeUpstreamError(error instanceof Error ? error.message : '', apiKey, 'Proxy fetch failed') }, 502);
   }

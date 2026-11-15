@@ -43,9 +43,9 @@ export default function GuidePage() {
       <section className="panel">
         <h2>📋 旅團活動知會</h2>
         <ol style={{ paddingLeft: 20, lineHeight: 2, fontSize: 13.5 }}>
-          <li>可按年份、支部及性質查看公開活動知會。</li>
-          <li>填妥活動及負責領袖資料後提交到主 Sheet。</li>
-          <li>公開清單不會顯示領袖姓名、電話或電郵。</li>
+          <li>填妥活動及負責領袖資料後直接提交到主 Sheet 內部存檔。</li>
+          <li>本平台只提供遞交功能，已提交嘅活動知會不會於公開頁面列出。</li>
+          <li>提交後請記低知會編號，如需補充或修改請聯絡區會職員。</li>
         </ol>
       </section>
 

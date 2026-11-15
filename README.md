@@ -14,10 +14,10 @@
 
 | 頁面 | 公開讀取 | 公開提交 |
 |---|---|---|
-| `/venue` | `listVenues` | `submitVenueRequest` |
+| `/venue` | `listVenues` | `submitVenueRequest`（必填電郵以寄出確認／入場密碼） |
 | `/stock` | `listItems`（主 Sheet 即時庫存） | `submitStockBatchRequest`（proxy；支援多項一次遞交） |
 | `/training` | `listCourseLinks` | `submitCourseReg` → 每班 Script `addReg` |
-| `/activity` | `listActivityNotices` | `submitActivityNotice` |
+| `/activity` | —（只作公開提交） | `submitActivityNotice` |
 | `/troops`（區內旅團） | `listDistrictTroops` | — |
 | `/contact-district`（聯絡區會） | `listDistrictTroops` | `submitVisitRequest`（旅團探訪申請／活動邀請） |
 | `/feedback`（你講我聽） | — | `submitDistrictFeedback`（匿名區務意見箱；可選 DC 保密直達） |
@@ -116,12 +116,12 @@ browser（無 API Key）
 
 `app/api/proxy/route.ts` 會：
 
-- 只容許上述公開 action（管理 action 一律 `403`）；
-- 對 CourseLinks、活動知會等回應再做公開欄位白名單；
+- 只容許上述公開 action（管理 action 及未開放嘅 GET 如 `listActivityNotices` 一律 `403`）；
+- 對 CourseLinks、區內旅團等回應再做公開欄位白名單；
 - 防止 `scriptApiKey / scriptExecUrl / driveFolderId` 及領袖聯絡資料流出；
-- 提交前再檢查 `getSystem`；
+- 提交前再檢查 `getSystem`（借場 `submitVenueRequest` 亦必檢有效 `email`）；
 - 執行 body 大小、honeypot、欄位白名單及基本 per-instance rate limit；
-- 將 Apps Script 嘅 `{ ok: true, refCode }` 統一成前端使用嘅 `{ ok: true, data: { refCode } }`。
+- 將 Apps Script 嘅 `{ ok: true, refCode }` 統一成前端使用嘅 `{ ok: true, data: { refCode } }`（借場同時可回傳布林值 `emailSent`）。
 
 > 基本 rate limit 唔取代 CDN / WAF 或 Apps Script 端限流；正式上線仍建議加 Turnstile / reCAPTCHA。
 
@@ -129,9 +129,9 @@ browser（無 API Key）
 
 每個公開讀取原本都要行 `瀏覽器 → Vercel → Google Apps Script → Google Sheet`，一次往返遠慢過頁面本身。而家用以下幾層提速（各層都只喺本平台內實作），**動態提交同系統鎖定零快取**：
 
-1. **Server 端短效快取**（`app/api/proxy/route.ts`＋`lib/readCache.ts`）：只放 `sanitizeGet` 之後嘅公開唯讀資料，按「區／upstream／action／參數／（課程用）日期」做 key。TTL：庫存 15 秒、活動知會 30 秒、名錄／設定／課程／通告 60 秒、場地 120 秒。同一 key 嘅並行請求 single-flight 合併做一次上游呼叫；上游短暫失聯時可回 `X-Portal-Cache: STALE` 頂住（唔會當新資料用，亦唔會畀 CDN 散播）。`getSystem`、`POST` 提交、錯誤回應一律 `no-store`。
+1. **Server 端短效快取**（`app/api/proxy/route.ts`＋`lib/readCache.ts`）：只放 `sanitizeGet` 之後嘅公開唯讀資料，按「區／upstream／action／參數／（課程用）日期」做 key。TTL：庫存 15 秒、名錄／設定／課程／通告 60 秒、場地 120 秒。同一 key 嘅並行請求 single-flight 合併做一次上游呼叫；上游短暫失聯時可回 `X-Portal-Cache: STALE` 頂住（唔會當新資料用，亦唔會畀 CDN 散播）。`getSystem`、`POST` 提交、錯誤回應一律 `no-store`。
 2. **Vercel Edge / 瀏覽器**：可快取嘅 GET 回 `Cache-Control: public, max-age=0, s-maxage=20, stale-while-revalidate=20`，瀏覽器每次仍向 edge 確認；`X-Portal-Cache: HIT/MISS/STALE/BYPASS` 方便查證。
-3. **瀏覽器端 request cache**（`lib/api.ts`）：同一 SPA session 內重複開同一頁／前後頁切換即時用已清洗資料（30–60 秒，`getSystem` 唔快取）；任何提交成功即清空所有唯讀快取，避免讀到舊庫存／舊知會。
+3. **瀏覽器端 request cache**（`lib/api.ts`）：同一 SPA session 內重複開同一頁／前後頁切換即時用已清洗資料（15–60 秒，`getSystem` 唔快取）；任何提交成功即清空所有唯讀快取，避免讀到舊庫存／舊名錄。
 
 Service worker 另外只快取本站 JS/CSS／圖示／manifest 等靜態檔（版本化 cache，每次部署自動換新）；HTML、RSC、`/api/*`、POST 同一律唔接管，所以離線唔保證開到平台，但任何一次連線載入嘅頁面同資料都一定係最新版本。更新流程見下節。
 
@@ -202,7 +202,7 @@ npm audit
 
 > 目標：Vercel 儲存配額唔會爆，同時功能零倒退。
 
-1. **`.vercelignore` 係部署黑名單**——`.git`、`docs/`（補丁／合約文件）、`scripts/`（測試／loader）、`node_modules`、`.next`、`coverage`、`*.log/*.bak/*.tmp/*.old` 一律唔上部署包。新嘅開發腳本／測試輸出必須同步加入；
+1. **`.vercelignore` 係部署黑名單**——`.git`、`backend/`（Apps Script 快照與管理端 patch）、`docs/`（補丁／合約文件）、`scripts/`（測試／loader）、`node_modules`、`.next`、`coverage`、`*.log/*.bak/*.tmp/*.old` 一律唔上部署包。新嘅開發腳本／測試輸出必須同步加入；
 2. **`public/` 檔案會原樣進部署包**——未引用嘅圖檔禁止提交；加新靜態資源前先 `grep -rn "檔名" app components public`。`/sw.js` 已改由 `app/sw.js/route.ts` 產生（要注入 build 版本），`public/sw.js` 已移除，唔好再加返；
 3. **圖示去重**——SW 通知圖示同 manifest 共用同一個 `icon-192.png`（原本多存咗一份位元組級相同嘅 `notification-192.png`，已刪，省 49K）；
 4. **依賴極簡**——`package.json` 只有 `next / react / react-dom / qrcode.react` 四個 runtime 依賴；加新依賴前要講明理由；
@@ -246,6 +246,8 @@ npm audit
 
 首頁三張借用服務卡有極短 `Scout System` 小標籤、服務格下方有完整來源列，通告區同「我的紀錄冊」頁亦有短句來源（`components/ScoutSystemCredit.tsx`）。用戶確認 **Scout System 嘅來源網址就係 SCOUT APP STORE**：牌子名直接連去 [https://scoutappstore.vercel.app/](https://scoutappstore.vercel.app/)，唔用 `scoutsystem.vercel.app`；四個服務各自亦連去原站／入口，外連一律新分頁＋`rel="noopener noreferrer"`。本平台自身版權（`© 2026 SKWSCOUT`）維持不變。
 
-## 首頁卡片版面（手機）
+## 首頁卡片版面及自訂排列
 
-服務卡同守則卡嘅小字介紹已全部移除，只留圖示、名稱、標籤（借用服務另加極短 `Scout System` 徽章）；手機（`≤640px`）由每行 1 張改為**每行 2 張**，並縮細 padding／字級，減少向下滑嘅長度。說明內容仍然喺各服務頁同使用指南入面，冇刪走功能或守則原文。
+- `GEMINI 輔助系統` 及 `SCOUT APP STORE` 置於預設服務格最後兩格，其餘區內核心服務靠前顯示。
+- 桌面可拖拉任何服務卡自由調整次序；手機可直接使用每張卡右下角 `⠿` 拖拉手把，或按「⇄ 調整次序」進入全卡拖拉排序模式（亦支援手把方向鍵移動），並提供「↺ 還原預設次序」還原預設。次序按區碼自動保存在本機 `localStorage`（`mp:card-order:{districtCode}`）。
+- 服務卡同守則卡嘅小字介紹已全部移除，只留圖示、名稱、標籤（借用服務另加極短 `Scout System` 徽章）；手機（`≤640px`）由每行 1 張改為**每行 2 張**，並縮細 padding／字級，減少向下滑嘅長度。說明內容仍然喺各服務頁同使用指南入面，冇刪走功能或守則原文。
