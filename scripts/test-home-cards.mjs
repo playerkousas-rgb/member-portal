@@ -133,10 +133,22 @@ test('首頁預設次序：GEMINI 輔助系統與 SCOUT APP STORE 放最後兩�
 
   const { container } = render(React.createElement(HomePage));
   const titles = () => [...container.querySelectorAll('.grid .card h3')].map((el) => el.textContent);
+  const tagsByTitle = () => Object.fromEntries(
+    [...container.querySelectorAll('.grid .card')].map((card) => [
+      card.querySelector('h3')?.textContent,
+      card.querySelector('.tag')?.textContent,
+    ]),
+  );
 
   assert.equal(titles().length, 11);
   assert.ok(titles().includes('邀請探訪/出席活動'), '首頁服務卡應改名為「邀請探訪/出席活動」');
   assert.ok(!titles().includes('聯絡區會'), '首頁服務卡不應保留舊名「聯絡區會」');
+  const tags = tagsByTitle();
+  for (const name of ['借用物資', '訓練班報名', '旅團活動知會', '邀請探訪/出席活動']) {
+    assert.equal(tags[name], '提交', `${name} 標籤應改名為「提交」`);
+  }
+  assert.ok(!Object.values(tags).includes('公開提交'), '首頁卡片不應顯示「公開提交」');
+  assert.ok(!Object.values(tags).includes('公開報名'), '首頁卡片不應顯示「公開報名」');
   assert.deepEqual(titles().slice(-2), ['GEMINI 輔助系統', 'SCOUT APP STORE']);
   assert.equal(screen.queryByRole('button', { name: '↺ 還原預設次序' }), null, '預設次序時唔顯示還原掣');
 
