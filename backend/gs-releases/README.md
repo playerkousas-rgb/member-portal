@@ -9,10 +9,12 @@ backend/
 ├── gs-releases/                     ← 每個後台版本一個只讀快照，直接貼 Apps Script
 │   ├── README.md
 │   ├── Code-v4.29.0.gs .. Code-v4.37.0.gs   ← 自 scout-district-portal 同步嘅上游發布快照
-│   └── Code-v4.37.1.gs              ← 修復借場確認／密碼電郵、重寄電郵與多分隔符職員通知
+│   ├── Code-v4.37.1.gs              ← 修復借場確認／密碼電郵、重寄電郵與多分隔符職員通知
+│   └── Code-v4.37.2.gs              ← 服務改名「邀請探訪/出席活動」、缺 VisitRequests 表自動補建與保護
 └── patches/
     ├── admin-v4.29.0.patch
-    └── admin-v4.37.1-venue-email.patch  ← 套用於 scout-district-portal HEAD (b1427ee) 嘅配套改動
+    ├── admin-v4.37.1-venue-email.patch  ← 套用於 scout-district-portal HEAD (b1427ee) 嘅配套改動
+    └── admin-v4.37.2-visit-rename.patch ← 套用於 scout-district-portal HEAD (70809bb) 嘅改名及 GS v4.37.2 補丁
 ```
 
 ## 每次改動前必做：雙向 GS 同步檢查（比較邊一邊較新）
@@ -21,7 +23,7 @@ backend/
 
 1. 若 `scout-district-portal` 嘅 `gs/Code.gs` / `gs/releases/` 較新：先把新版快照及 `gs/Code.gs` 同步到本倉 `backend/gs-releases/`，確保基於最新版本改動、唔會覆寫對方已上線功能。
 2. 若本倉 `backend/gs-releases/` 較新或今次需要修改 GS：基於最新版輸出新版本 `Code-v<版本號>.gs`，並將對應補丁存於 `backend/patches/`，方便對方同步到 `scout-district-portal`。
-3. 確認兩邊 `Code.gs` 版本一致後（現時雙方均已同步至 `v4.37.1`），先繼續進行改動與測試。
+3. 確認兩邊 `Code.gs` 版本狀態後（上游 `scout-district-portal` 現為 `v4.37.1`，本倉最新快照為 `v4.37.2` 並附 `admin-v4.37.2-visit-rename.patch`），先繼續進行改動與測試。
 
 ## 版本約定
 
@@ -31,13 +33,13 @@ backend/
 
 ## 部署 Apps Script 步驟（區方執行）
 
-1. 下載對應版本快照（最新為 `Code-v4.37.1.gs`），備份現有 Apps Script 專案內容。
+1. 下載對應版本快照（最新為 `Code-v4.37.2.gs`），備份現有 Apps Script 專案內容。
 2. 打開 Apps Script 編輯器，全選貼上覆蓋，儲存。
 3. 執行選單「🧱 補建缺失表（不清空資料）」（即 `setupSheets()`）；所有舊資料與設定會原封不動保留，只補缺失欄位／工作表。
 4. 如需新借場申請通知職員，於 `Config` 分頁填寫 `NOTIFY_STAFF_EMAIL`（支援英文／中文逗號、分號或空格分隔多個電郵）；如需自訂寄件顯示名稱，填寫 `notifyFrom`。
 5. 「部署 → 管理部署項目 → 鉛筆編輯 → 版本選**新版本** → 部署」（保持原 `/exec` 網址不變）。
 6. 重要：Apps Script 首次加入或使用 `MailApp` 時，請於編輯器手動執行一次 `setupSheets()` 或測試函式完成 Google 電郵寄送授權（Grant permissions），否則 Web App 寄信會無權限執行。
-7. 免 API Key 驗證：開 `https://你嘅網址/exec?action=getHealthCheck`，確認 `version` 為 `4.37.1`。
+7. 免 API Key 驗證：開 `https://你嘅網址/exec?action=getHealthCheck`，確認 `version` 為 `4.37.2`。
 8. 關於 `listActivityNotices`：`member-portal` 公開端已停用活動知會公開清單（proxy 回 403），但 `scout-district-portal` 管理端仍使用 `listActivityNotices`，故 GS 保留該 action 不刪除。
 
 ## 重建 scout-district-portal 改動
@@ -45,9 +47,9 @@ backend/
 ```bash
 git clone https://github.com/playerkousas-rgb/scout-district-portal.git
 cd scout-district-portal
-git checkout -b arena/v4.37.1-venue-email
-git apply /path/to/member-portal/backend/patches/admin-v4.37.1-venue-email.patch
-node scripts/test-venue-lock-gs.js
+git checkout -b arena/v4.37.2-visit-rename
+git apply /path/to/member-portal/backend/patches/admin-v4.37.2-visit-rename.patch
+node scripts/test-visit-gs.js
 ```
 
 ## 現有版本
@@ -64,5 +66,6 @@ node scripts/test-venue-lock-gs.js
 | v4.36.0 | `Code-v4.36.0.gs` | 借場 Teamup 衝突 fail-closed 與 TTLock 防撞碼強化 | — |
 | v4.37.0 | `Code-v4.37.0.gs` | 上游 `gs/Code.gs`（`b1427ee`）：Teamup 區總部使用情況唯讀支援同步 | — |
 | v4.37.1 | `Code-v4.37.1.gs` | 借場提交申請確認電郵、密碼電郵純文字備份、多分隔符 `NOTIFY_STAFF_EMAIL`、`Email` 欄名兼容、電郵錯誤紀錄與 `resendVenueApprovalEmail` 重寄 | `admin-v4.37.1-venue-email.patch` |
+| v4.37.2 | `Code-v4.37.2.gs` | 「邀請探訪/出席活動」改名、缺 `VisitRequests` 表時自動補建與保護（不再誤報「尚未就緒」） | `admin-v4.37.2-visit-rename.patch` |
 
 > v4.28.1 或之前嘅歷史版本喺 scout-district-portal 嘅 Git history 入面；由 v4.29.0 起統一於此留快照。

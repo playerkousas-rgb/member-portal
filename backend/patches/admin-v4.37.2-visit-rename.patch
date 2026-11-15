@@ -1,0 +1,707 @@
+diff --git a/components/VisitPanel.tsx b/components/VisitPanel.tsx
+index 64142c7..8f5ce42 100644
+--- a/components/VisitPanel.tsx
++++ b/components/VisitPanel.tsx
+@@ -6,7 +6,7 @@
+  * · 撳一下旅團格仔 → 填日期 → 儲存，就登記咗今次探訪（詳細入面有總會匯報欄：面見邊個／方式／人數／支援）
+  * · DC 出報告：揀「幾月到幾月」→ 🏢 總會格式匯報（一鍵生成 Excel 直接交總會）
+  *   ＋ 👥 幹部努力統計（邊個探咗幾多次／邊啲旅 — 內部用，唔會出現喺交總會嗰份）
+- * · 📨 申請／邀請：成員端「聯絡區會」提交的請求探訪／邀請出席（Perms 行 troopRequests）
++ * · 📨 申請／邀請：成員端「邀請探訪/出席活動」提交的請求探訪／邀請出席（Perms 行 troopRequests）
+  *
+  * 權限：入門門禁由上層 /troop 處理；本面板按 showVisit／showRequests 顯示子分頁，
+  * 後台各 action 亦各自查自己的 Perms 行，前端隱藏不構成安全邊界。
+diff --git a/components/VisitRequestsPanel.tsx b/components/VisitRequestsPanel.tsx
+index bea1faa..1511908 100644
+--- a/components/VisitRequestsPanel.tsx
++++ b/components/VisitRequestsPanel.tsx
+@@ -1,6 +1,6 @@
+ 'use client';
+ /**
+- * 📨 旅團申請／邀請（v4.32.0）— 成員端「聯絡區會」提交的請求探訪／邀請出席。
++ * 📨 旅團申請／邀請（v4.32.0）— 成員端「邀請探訪/出席活動」提交的請求探訪／邀請出席。
+  * 權限行：troopRequests（👁 睇、✏️ 改狀態／指派）。支部 ADC 後台只回自己支部＋全旅申請。
+  * 探訪完成後照舊喺「探訪登記」入正式紀錄，呢度淨係跟進申請狀態。
+  */
+@@ -69,7 +69,7 @@ export default function VisitRequestsPanel({ token }: { token: string }) {
+         <div className="section-head">
+           <div>
+             <h3>📨 旅團申請／邀請（{board?.requests.length ?? 0}）</h3>
+-            <p>成員系統「聯絡區會」提交。{canEdit ? '可改狀態、指派負責幹部及加區會備註。' : '你目前只有查閱權限。'}完成探訪後，請照舊喺「🗺 探訪登記」登記正式紀錄。</p>
++            <p>成員系統「邀請探訪/出席活動」提交。{canEdit ? '可改狀態、指派負責幹部及加區會備註。' : '你目前只有查閱權限。'}完成探訪後，請照舊喺「🗺 探訪登記」登記正式紀錄。</p>
+           </div>
+           <label className="aw-check">
+             <input type="checkbox" checked={onlyOpen} onChange={e => setOnlyOpen(e.target.checked)} /> 只睇未完成
+diff --git a/docs/gs-upgrade-no-data-loss.md b/docs/gs-upgrade-no-data-loss.md
+index baf547b..19d1405 100644
+--- a/docs/gs-upgrade-no-data-loss.md
++++ b/docs/gs-upgrade-no-data-loss.md
+@@ -41,5 +41,5 @@
+ 
+ - 「旅團探訪」「旅團資料」「活動知會」三張卡合併為一張 `troop` 入口卡（`/troop`，三個大分頁；申請邀請留喺探訪內）。**例外披露**：`setupSheets()` 升級時會將 Cards 表入面舊 `visit`、`troopDirectory`、`activity` 三行移除、補入 `troop` 一行（主控台排序跟新卡 order），並將已刪除嘅 `unit` Cards＋Perms 行一併移除；除此之外維持只追加原則。Perms 原有 `visit`、`troopDirectory`、`activity` 三行儲存格**原封保留**轉作子權限，只喺缺失時追加 `troopContacts`、`troopRequests`；`troop` 入口卡本身冇 Perms 行，只由 parent=`troop` 嘅四行子權限推導，歸 `contacts` 嘅 `troopContacts` 唔計入。
+ - 權限管治改為 Perms 表唯一準則：超管喺「⚙️ 權限／角色管理」對五行子權限逐行撳 👁／✏️ 即時生效，不再需要改程式。四行歸「旅團」（`visit`、`troopDirectory`、`troopRequests`、`activity`），一行歸「聯絡簿」（`troopContacts`）。升級預設同 v4.31.0 行為一致（探訪全員可登記、DDC+ 改／刪；資料 ADC+ 可改；活動知會沿用原卡預設：DC／SYSADMIN／DDC／STAFF 可管理、其餘可看），新增兩行預設：`troopContacts`＝ADC 唯讀、STAFF／DDC／DC 可改；`troopRequests`＝ADC＋STAFF／DDC／DC 可處理。**注意**：`Users.cards` 個人範圍會按實際子分頁 id 逐項檢查；如帳戶填咗 cards 白名單，升級前先核對需要用嘅子分頁 id 有冇列入。
+-- 新表 `TroopContacts`（私隠聯絡）及 `VisitRequests`（成員端聯絡區會申請）由 `setupSheets()` 補建，並列入工作表保護清單。私隠聯絡位於「聯絡簿 → 旅團」公開清單下面：前端要先通過 `contacts` 卡門禁，再按 `troopContacts` 子權限顯示；自訂帳戶如要使用，須同時有聯絡簿卡及該子分頁權限。聯絡只經 `getTroopContacts` 按子分頁權限＋支部範疇讀取：支部 ADC 只見自己支部（該支部冇團長就只見旅長）；`listDistrictTroops` 等公開回應絕不包含聯絡資料。公開提交 `submitVisitRequest`（成員端用，回覆聯絡可選）只寫入 `VisitRequests`，不會寫入 `Visits`。
++- 新表 `TroopContacts`（私隠聯絡）及 `VisitRequests`（成員端「邀請探訪/出席活動」申請）由 `setupSheets()` 補建，並列入工作表保護清單。私隠聯絡位於「聯絡簿 → 旅團」公開清單下面：前端要先通過 `contacts` 卡門禁，再按 `troopContacts` 子權限顯示；自訂帳戶如要使用，須同時有聯絡簿卡及該子分頁權限。聯絡只經 `getTroopContacts` 按子分頁權限＋支部範疇讀取：支部 ADC 只見自己支部（該支部冇團長就只見旅長）；`listDistrictTroops` 等公開回應絕不包含聯絡資料。公開提交 `submitVisitRequest`（成員端用，回覆聯絡可選）只寫入 `VisitRequests`，不會寫入 `Visits`。
+ - 上線次序：備份 → 貼新 GS → `setupSheets()` → 更新原有部署 → 部署前端。前端對舊 GS 有相容（舊探訪／資料／活動三卡自動合成一張「旅團」卡先顯示），但聯絡／申請小分頁要新 GS 至有。健康檢查應顯示 `version: "4.32.0"` 及 `troopContactsReady`／`visitRequestsReady` 為 true。
+diff --git a/docs/member-gs-handshake.md b/docs/member-gs-handshake.md
+index 5635008..c7a51d0 100644
+--- a/docs/member-gs-handshake.md
++++ b/docs/member-gs-handshake.md
+@@ -416,9 +416,9 @@ member-portal 借場表提交
+ 管理系統 `Units` 表已擴充可選的 `meetingTime`、`instagramUrl`、`facebookUrl`、`websiteUrl` 及 `publicVisible` 欄位；主辦機構沿用 `org`。管理員於 `/troop?tab=directory` 編輯公開名錄（舊 `/visit?tab=units` 會轉向），空白欄位在成員端不顯示；`active=FALSE` 或 `publicVisible=FALSE` 不公開，後者獨立於旅團啟用狀態。公開 GET action `listDistrictTroops` 回傳 `{ districtCode, districtName, troops:[{ troop, label, organizer, meetingTime, instagramUrl, facebookUrl, websiteUrl }] }`，不回傳探訪支部團數或內部備註。
+ 
+ member-portal 需將 `listDistrictTroops` 加入自己的 server-side proxy GET action allowlist 及欄位白名單，新增「區內旅團」卡片／頁面與詳情彈窗。完整 API 合約及前端未完成項目見 [`member-portal-troop-directory.md`](member-portal-troop-directory.md)。
+-## 📨 旅團聯絡區會 `submitVisitRequest`（GS v4.32.0 新增，公開提交）
++## 📨 邀請探訪/出席活動 `submitVisitRequest`（GS v4.32.0 新增；v4.37.2 改名及自動補表）
+ 
+-成員端「聯絡區會」表單：旅團可以 (1) 申請區幹部探訪，或 (2) 邀請區幹部出席活動。
++成員端「邀請探訪/出席活動」表單（`/contact-district`）：旅團可以 (1) 申請區幹部探訪，或 (2) 邀請區幹部出席活動。
+ 同「你講我聽」`submitDistrictFeedback` 一樣：公開 POST（毋須登入、要帶 API Key 經 proxy）、區鎖定期間拒絕、成功後電郵通知區職員。
+ 
+ ### 提交欄位（POST body，`action: 'submitVisitRequest'`）
+diff --git a/docs/member-portal-troop-directory.md b/docs/member-portal-troop-directory.md
+index b5d1752..e683113 100644
+--- a/docs/member-portal-troop-directory.md
++++ b/docs/member-portal-troop-directory.md
+@@ -142,8 +142,8 @@ v4.29.0 將名錄由「每旅一張卡」升級為對齊[港島總會筲箕灣
+ - 14 組 GS suites 中 13 組通過；仍只有原有 `test-district-hq-gs.js:62` 的月曆配置基線失敗，未改動該功能或掩蓋測試。
+ - 原 v4.30.0 快照及 YMIS 舊頁保持不變；沒有合併 MAIN、部署 GS、改動正式 Sheet 或提交成員端 repo。
+ 
+-## v4.32.0 旅團合併卡＋聯絡區會（取代上節 v4.31.0 固定政策描述）
++## v4.32.0 旅團合併卡＋邀請探訪/出席活動（取代上節 v4.31.0 固定政策描述）
+ 
+ - 管理端「旅團資料」已併入「旅團」卡（`/troop?tab=directory` 的「旅團資料」分頁，只放公開資料）；讀寫權限由 Perms 表 `troopDirectory` 子分頁行決定（唔再係寫死政策），公開合約 `listDistrictTroops`（v1.3 shape）不變。
+-- 新增成員端入口「聯絡區會」：公開 POST `submitVisitRequest`（申請探訪／邀請出席；回覆聯絡可選，同「你講我聽」模式），欄位合約見 [`member-gs-handshake.md`](member-gs-handshake.md) 尾節。申請只入 `VisitRequests` 待區方跟進，不會直接變探訪紀錄。
++- 新增成員端入口「邀請探訪/出席活動」（`/contact-district`）：公開 POST `submitVisitRequest`（申請探訪／邀請出席；回覆聯絡可選，同「你講我聽」模式），欄位合約見 [`member-gs-handshake.md`](member-gs-handshake.md) 尾節。申請只入 `VisitRequests` 待區方跟進，不會直接變探訪紀錄。
+ - 旅團領袖私人聯絡存在管理端私隠表 `TroopContacts`，只喺管理端「聯絡簿 → 旅團」按 `troopContacts` 子權限顯示；任何公開回應都不會包含，成員端不需要亦不應讀取。
+diff --git a/gs/Code.gs b/gs/Code.gs
+index cb1c299..c7a5f4f 100644
+--- a/gs/Code.gs
++++ b/gs/Code.gs
+@@ -172,7 +172,7 @@ var SHEET = {
+   UNIT_SECTIONS: 'UnitSections', // v4.29.0 旅→團階層：每個團（支部單位）一列嘅集會時間／地點／社交帳戶
+   VISITS: 'Visits',              // 旅團探訪登記（一次探訪一行）
+   TROOP_CONTACTS: 'TroopContacts', // v4.32.0 旅團聯絡（個人資料；Perms 獨立行 troopContacts，不經公開 API）
+-  VISIT_REQUESTS: 'VisitRequests', // v4.32.0 成員端聯絡區會：請求探訪／邀請出席（Perms 獨立行 troopRequests）
++  VISIT_REQUESTS: 'VisitRequests', // v4.32.0 成員端「邀請探訪/出席活動」：請求探訪／邀請出席（Perms 獨立行 troopRequests）
+   AWARD_TYPES: 'AwardTypes',     // 獎項及年期設定（可喺管理系統改，唔使改程式）
+   INCIDENT_REQ: 'IncidentReports', // 意外報告（HKSA ACC-RPT 2019/07 欄位）
+   COURSE_LINKS: 'CourseLinks',   // 訓練班目錄（單一資料來源）
+@@ -386,7 +386,7 @@ function doGet(e) {
+   if (action === 'getHealthCheck') {
+     return json(ok({
+       ok: true,
+-      version: '4.37.1',
++      version: '4.37.2',
+       feedbackReady: feedbackReady_(),
+       dcFeedbackReady: dcFeedbackReady_(),
+       troopContactsReady: troopContactsReady_(),
+@@ -4454,6 +4454,24 @@ function troopContactsReady_() {
+ function visitRequestsReady_() {
+   try { return !!SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.VISIT_REQUESTS); } catch (e) { return false; }
+ }
++function ensureVisitRequestsSheet_() {
++  var ss = SpreadsheetApp.getActiveSpreadsheet();
++  var sh = ss.getSheetByName(SHEET.VISIT_REQUESTS);
++  if (sh && sh.getLastRow() > 0) return sh;
++  var lock = null;
++  try { lock = LockService.getScriptLock(); lock.tryLock(10000); } catch (e) { lock = null; }
++  try {
++    sh = ss.getSheetByName(SHEET.VISIT_REQUESTS);
++    if (sh && sh.getLastRow() > 0) return sh;
++    sh = ensureSheet_(ss, SHEET.VISIT_REQUESTS, [VISIT_REQUEST_HEADER.slice()]);
++    if (sh) protectSensitiveSheets_(ss, [SHEET.VISIT_REQUESTS]);
++    return sh;
++  } catch (e) {
++    return null;
++  } finally {
++    if (lock) { try { lock.releaseLock(); } catch (x) {} }
++  }
++}
+ /** 文字欄長度上限（超長回 null，同 feedbackText_ 模式） */
+ function troopText_(value, maxLength) {
+   var text = String(value == null ? '' : value).trim();
+@@ -4588,7 +4606,7 @@ function deleteTroopContact_(token, id) {
+   return ok({ deleted: true, id: target.id });
+ }
+ 
+-// ===================== 聯絡區會 VisitRequests（v4.32.0） =====================
++// ===================== 邀請探訪/出席活動 VisitRequests（v4.32.0；v4.37.2 改名及自動補表） =====================
+ // 成員系統公開提交（唔使登入，經成員端 proxy 白名單）：請求區幹部探訪／邀請出席活動。
+ // 回覆聯絡資料同「你講我聽」一樣係自願填：wantReply=FALSE 時後端清走所有聯絡欄。
+ // 申請同已完成探訪（Visits）分開儲存；幹部喺「旅團 → 申請／邀請」跟進狀態，
+@@ -4624,8 +4642,6 @@ function visitRequestRow_(r) {
+ function submitVisitRequest_(b) {
+   var locked = guardLocked_(); if (locked) return locked;
+   b = b || {};
+-  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.VISIT_REQUESTS);
+-  if (!sh) return err('聯絡區會服務尚未就緒，請聯絡區會職員');
+   var type = String(b.type || '').trim().toLowerCase();
+   if (VISIT_REQUEST_TYPES.indexOf(type) < 0) return err('申請類別不正確（請求探訪／邀請出席）');
+   var troop = String(b.troop == null ? '' : b.troop).trim();
+@@ -4658,6 +4674,8 @@ function submitVisitRequest_(b) {
+       return err('選擇需要回覆時，請提供有效的聯絡方式及帳號');
+     }
+   }
++  var sh = ensureVisitRequestsSheet_();
++  if (!sh) return err('邀請探訪/出席活動服務尚未就緒，請聯絡區會職員');
+   var id = genId_('vr');
+   var refCode = genRef_('TR');
+   var now = new Date().toISOString();
+@@ -4682,7 +4700,7 @@ function submitVisitRequest_(b) {
+ 
+ function getVisitRequests_(token) {
+   var t = requireCardView_(token, 'troopRequests'); if (t.error) return err(t.error);
+-  if (!visitRequestsReady_()) return err('尚未執行 setupSheets()（缺 VisitRequests 表）');
++  if (!ensureVisitRequestsSheet_()) return err('尚未執行 setupSheets()（缺 VisitRequests 表）');
+   var scope = troopScopeSection_(t.role);
+   var rows = readSheet_(SHEET.VISIT_REQUESTS).map(visitRequestRow_)
+     .filter(function (r) { return !!r.id && !!r.troop; })
+@@ -8992,7 +9010,7 @@ function blueprint_() {
+       ['id', 'troop', 'section', 'unitCode', 'contactRole', 'name', 'phone', 'email', 'note', 'active', 'createdAt', 'updatedAt', 'updatedBy'],
+     ] },
+ 
+-    // v4.32.0 成員端「聯絡區會」：請求探訪／邀請出席（公開提交；幹部經 troopRequests 權限行處理）
++    // v4.32.0 成員端「邀請探訪/出席活動」：請求探訪／邀請出席（公開提交；幹部經 troopRequests 權限行處理）
+     { name: SHEET.VISIT_REQUESTS, rows: [
+       ['id', 'refCode', 'districtCode', 'createdAt', 'type', 'troop', 'section', 'activityName',
+         'preferredDate', 'preferredTime', 'location', 'purpose', 'attendeeCount',
+diff --git a/lib/api.ts b/lib/api.ts
+index fade458..17aad03 100644
+--- a/lib/api.ts
++++ b/lib/api.ts
+@@ -386,7 +386,7 @@ export const api = {
+   deleteTroopContact: (token: string, id: string): Promise<ApiResult<{ deleted: boolean }>> =>
+     callPost('deleteTroopContact', { token, id }),
+ 
+-  // ── 📨 聯絡區會（v4.32.0，Perms 行 troopRequests；成員端經其 proxy 用公開 submit） ──
++  // ── 📨 邀請探訪/出席活動（v4.32.0，Perms 行 troopRequests；成員端經其 proxy 用公開 submit） ──
+   submitVisitRequest: (data: Record<string, unknown>): Promise<ApiResult<{ id: string; refCode: string }>> =>
+     callPost('submitVisitRequest', data as Record<string, string>),
+   getVisitRequests: (token: string): Promise<ApiResult<VisitRequestsBoard>> =>
+diff --git a/lib/demo/engine.ts b/lib/demo/engine.ts
+index 98bf01d..51c970c 100644
+--- a/lib/demo/engine.ts
++++ b/lib/demo/engine.ts
+@@ -732,7 +732,7 @@ export function demoCall(action: string, payload: AnyObj, method: 'GET' | 'POST'
+       persistDb(); return ok({ saved: true, count: incoming.length });
+     }
+ 
+-    // ── 🔒 旅團聯絡／📨 聯絡區會（v4.32.0） ──
++    // ── 🔒 旅團聯絡／📨 邀請探訪/出席活動（v4.32.0） ──
+     case 'getTroopContacts': {
+       if (!u) return fail('未登入或登入已過期（示範版）。');
+       if (!u.mockAdmin && demoSubAccess(u, 'troopContacts') === '') return fail('你沒有此功能嘅權限');
+diff --git a/public/downloads/Code.gs.txt b/public/downloads/Code.gs.txt
+index aefb245..c7a5f4f 100644
+--- a/public/downloads/Code.gs.txt
++++ b/public/downloads/Code.gs.txt
+@@ -1,5 +1,5 @@
+ /**
+- * 童軍區統一後台 — 管理系統 + 成員系統 共用 Code.gs  v4.36.0
++ * 童軍區統一後台 — 管理系統 + 成員系統 共用 Code.gs  v4.37.1
+  * ================================================================
+  * 一張 Google Sheet + 一份 Code.gs + 一個 /exec + 一個 API Key。
+  *
+@@ -172,7 +172,7 @@ var SHEET = {
+   UNIT_SECTIONS: 'UnitSections', // v4.29.0 旅→團階層：每個團（支部單位）一列嘅集會時間／地點／社交帳戶
+   VISITS: 'Visits',              // 旅團探訪登記（一次探訪一行）
+   TROOP_CONTACTS: 'TroopContacts', // v4.32.0 旅團聯絡（個人資料；Perms 獨立行 troopContacts，不經公開 API）
+-  VISIT_REQUESTS: 'VisitRequests', // v4.32.0 成員端聯絡區會：請求探訪／邀請出席（Perms 獨立行 troopRequests）
++  VISIT_REQUESTS: 'VisitRequests', // v4.32.0 成員端「邀請探訪/出席活動」：請求探訪／邀請出席（Perms 獨立行 troopRequests）
+   AWARD_TYPES: 'AwardTypes',     // 獎項及年期設定（可喺管理系統改，唔使改程式）
+   INCIDENT_REQ: 'IncidentReports', // 意外報告（HKSA ACC-RPT 2019/07 欄位）
+   COURSE_LINKS: 'CourseLinks',   // 訓練班目錄（單一資料來源）
+@@ -386,7 +386,7 @@ function doGet(e) {
+   if (action === 'getHealthCheck') {
+     return json(ok({
+       ok: true,
+-      version: '4.36.0',
++      version: '4.37.2',
+       feedbackReady: feedbackReady_(),
+       dcFeedbackReady: dcFeedbackReady_(),
+       troopContactsReady: troopContactsReady_(),
+@@ -518,6 +518,7 @@ function doPost(e) {
+       case 'setStockBatchStatus':   return json(setStockBatchStatus_(b.token, b.batchRef, b.status));
+       case 'confirmVenueBooking':   return json(confirmVenueBooking_(b.token, b.id));
+       case 'approveVenueBooking':   return json(approveVenueBooking_(b.token, b.id, b));
++      case 'resendVenueApprovalEmail': return json(resendVenueApprovalEmail_(b.token, b.id));
+       case 'rejectVenueBooking':    return json(rejectVenueBooking_(b.token, b.id));
+       case 'updateVenueBooking':    return json(updateVenueBooking_(b.token, b.id, b.patch || b));
+       case 'getLockList':           return json(getLockList_(b.token));
+@@ -1763,6 +1764,9 @@ function submitVenueRequest_(b) {
+ 
+   ensureSheetColumn_(sh, 'activityName');
+   ensureSheetColumn_(sh, 'attendeeCount');
++  if (colIdxByHeader_(sh, 'email') <= 0 && colIdxByHeader_(sh, 'Email') <= 0) {
++    ensureSheetColumn_(sh, 'email');
++  }
+   appendRowObj_(sh, {
+     id: rid, districtCode: districtCode_(), refCode: ref,
+     submittedAt: now, createdAt: now,
+@@ -1780,12 +1784,61 @@ function submitVenueRequest_(b) {
+     setTextCellByHeader_(sh, newRowIdx, 'phone', req.phone);
+     setTextCellByHeader_(sh, newRowIdx, 'startDate', req.startDate);
+     setTextCellByHeader_(sh, newRowIdx, 'endDate', req.endDate);
++    if (req.email) {
++      if (colIdxByHeader_(sh, 'email') <= 0 && colIdxByHeader_(sh, 'Email') > 0) {
++        setTextCellByHeader_(sh, newRowIdx, 'Email', req.email);
++      } else {
++        setTextCellByHeader_(sh, newRowIdx, 'email', req.email);
++      }
++    }
+     if (teamupEventId) setTextCellByHeader_(sh, newRowIdx, 'teamupEventId', teamupEventId);
+   }
+   appendRecord_('venue', rid, ref, '🏛 借場：' + (venue.name || req.venueId), req.name, req.phone, req.troop || '', 'pending',
+     req.startDate + ' → ' + req.endDate);
+-  notifyStaff_('🏛 新借場申請', '場地：' + (venue.name || req.venueId) + '\n申請人：' + req.name + '（' + req.phone + '）\n' + req.startDate + ' → ' + req.endDate);
+-  return okSubmit_({ refCode: ref, id: rid, teamupEventId: teamupEventId });
++  var mailWarns = [];
++  var applicantMailSent = false;
++  var applicantMailTo = '';
++  if (String(req.email || '').trim()) {
++    try {
++      var confirmMail = sendVenueSubmissionEmail_({
++        email: req.email,
++        name: req.name,
++        venueName: venue.name || req.venueId,
++        venueId: String(venue.venueId).trim(),
++        activityName: req.activityName,
++        attendeeCount: req.attendeeCount,
++        purpose: req.purpose || '',
++        startDate: req.startDate,
++        endDate: req.endDate,
++        refCode: ref,
++      });
++      applicantMailSent = !!confirmMail.sent;
++      applicantMailTo = confirmMail.to || '';
++      if (confirmMail.warn) mailWarns.push(confirmMail.warn);
++    } catch (e) {
++      var confirmErr = '申請確認電郵發送失敗：' + String((e && e.message) || e);
++      console.error(confirmErr);
++      mailWarns.push(confirmErr);
++    }
++  }
++  var staffNotify = notifyStaff_(
++    '🏛 新借場申請（' + ref + '）',
++    '場地：' + (venue.name || req.venueId)
++    + '\n活動：' + req.activityName + '（' + req.attendeeCount + ' 人）'
++    + '\n申請人：' + req.name + '（' + req.phone + (req.email ? '／' + req.email : '') + '）'
++    + (req.troop ? '\n旅團：' + req.troop : '')
++    + '\n時段：' + req.startDate + ' → ' + req.endDate
++    + '\n申請編號：' + ref
++  );
++  if (staffNotify && staffNotify.warn) mailWarns.push(staffNotify.warn);
++  return okSubmit_({
++    refCode: ref,
++    id: rid,
++    teamupEventId: teamupEventId,
++    emailSent: applicantMailSent,
++    emailTo: applicantMailTo,
++    warn: mailWarns.length ? mailWarns.join('；') : undefined,
++  });
+ }
+ 
+ // ===================== 借場：查閱／批核 =====================
+@@ -1804,6 +1857,7 @@ function normalizeVenueBookingRow_(r) {
+   out.startDate = formatVenueDateField_(r.startDate);
+   out.endDate = formatVenueDateField_(r.endDate);
+   out.phone = r.phone === undefined || r.phone === null ? '' : String(r.phone);
++  out.email = String(pick_(r, ['email', 'Email', 'mail', '電郵'])).trim();
+   out.pwdRef = r.pwdRef === undefined || r.pwdRef === null ? '' : String(r.pwdRef).trim();
+   out.teamupEventId = r.teamupEventId === undefined || r.teamupEventId === null ? '' : String(r.teamupEventId).trim();
+   var rawPwd = r.passcode;
+@@ -1961,7 +2015,8 @@ function approveVenueBooking_(token, id, opts) {
+   if (finalEventId) booking.teamupEventId = finalEventId;
+ 
+   // 3) 電郵密碼俾申請人
+-  var emailTo = String(booking.email || '').trim();
++  var parsedMail = normalizeEmailList_(booking.email);
++  var emailTo = parsedMail.joined;
+   var emailSent = false;
+   var mailMsg = '';
+   if (emailTo) {
+@@ -1970,7 +2025,10 @@ function approveVenueBooking_(token, id, opts) {
+       emailSent = true;
+     } catch (e) {
+       mailMsg = '電郵發送失敗：' + String((e && e.message) || e);
++      console.error('借場批准電郵發送失敗（' + (booking.refCode || id) + '）：' + mailMsg);
+     }
++  } else if (String(booking.email || '').trim()) {
++    mailMsg = '申請人電郵格式不正確（' + String(booking.email).trim() + '），請先更正或改用 WhatsApp／手動通知密碼';
+   } else {
+     mailMsg = '申請人未填電郵，請用頁面 WhatsApp／手動通知密碼';
+   }
+@@ -2036,7 +2094,7 @@ function getVenueLockConfig_(token) {
+     return !!String(v.scienerLockId || '').trim();
+   });
+   return ok({
+-    version: '4.36.0',
++    version: '4.37.1',
+     clientId: c.clientId || '',
+     clientIdSet: !!c.clientId,
+     clientSecretSet: !!c.clientSecret,
+@@ -2147,6 +2205,43 @@ function rejectVenueBooking_(token, id) {
+   return setVenueBookingStatus_(token, id, 'rejected');
+ }
+ 
++/** 對已批准並已設密碼嘅借場申請重寄「入場密碼電郵」（唔重製門鎖密碼） */
++function resendVenueApprovalEmail_(token, id) {
++  var t = requirePerm_(token, 'canVenue'); if (t.error) return err(t.error);
++  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.VENUE_REQ);
++  if (!sh) return err('找不到 VenueBookings 工作表');
++  var rawBooking = readSheet_(SHEET.VENUE_REQ).filter(function (x) { return String(x.id) === String(id); })[0];
++  if (!rawBooking) return err('找不到申請');
++  var booking = normalizeVenueBookingRow_(rawBooking);
++  var status = String(booking.status || '').toLowerCase();
++  if (status !== 'approved' && status !== 'confirmed') {
++    return err('此申請尚未批核，請先批核後再寄出電郵');
++  }
++  var passcode = String(booking.passcode || '').trim();
++  if (!passcode) return err('此申請尚未設有入場密碼（請改用「補發電子鎖匙」）');
++  var parsed = normalizeEmailList_(booking.email);
++  if (!parsed.joined) {
++    return err(String(booking.email || '').trim() ? '申請人電郵格式不正確，請先編輯修正' : '申請人未填電郵，請先編輯補填電郵');
++  }
++  var validFrom = null, validTo = null;
++  try {
++    var startMs = parseVenueDateMs_(booking.startDate, false);
++    var endMs = parseVenueDateMs_(booking.endDate || booking.startDate, true);
++    if (isFinite(startMs) && isFinite(endMs) && endMs >= startMs) {
++      validFrom = new Date(startMs - 15 * 60 * 1000);
++      validTo = new Date(endMs + 15 * 60 * 1000);
++    }
++  } catch (ignore) {}
++  try {
++    sendVenueApprovalEmail_(booking, passcode, validFrom, validTo);
++    return ok({ sent: true, id: String(booking.id), emailTo: parsed.joined });
++  } catch (e) {
++    var msg = '電郵發送失敗：' + String((e && e.message) || e);
++    console.error('重寄借場密碼電郵失敗（' + (booking.refCode || id) + '）：' + msg);
++    return err(msg);
++  }
++}
++
+ /** 職員改申請內容（唔改 status） */
+ function updateVenueBooking_(token, id, patch) {
+   var t = requirePerm_(token, 'canVenue'); if (t.error) return err(t.error);
+@@ -2165,6 +2260,13 @@ function updateVenueBooking_(token, id, patch) {
+     }
+     patch.attendeeCount = attendeeCount;
+   }
++  if (patch.email !== undefined) {
++    var trimmedEmail = String(patch.email || '').trim();
++    if (trimmedEmail && !normalizeEmailList_(trimmedEmail).joined) {
++      return err('電郵格式不正確');
++    }
++    patch.email = trimmedEmail;
++  }
+   if (patch.venueId) {
+     var venue = readSheet_(SHEET.VENUES).filter(function (v) {
+       return String(v.venueId).trim() === String(patch.venueId).trim()
+@@ -2175,7 +2277,7 @@ function updateVenueBooking_(token, id, patch) {
+       patch.venueName = venue.name || patch.venueName;
+     }
+   }
+-  var textCols = { startDate: true, endDate: true, phone: true, activityName: true };
++  var textCols = { startDate: true, endDate: true, phone: true, email: true, activityName: true };
+   allow.forEach(function (k) {
+     if (patch[k] !== undefined && patch[k] !== null) {
+       if (textCols[k]) setTextCellByHeader_(sh, idx, k, patch[k]);
+@@ -4352,6 +4454,24 @@ function troopContactsReady_() {
+ function visitRequestsReady_() {
+   try { return !!SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.VISIT_REQUESTS); } catch (e) { return false; }
+ }
++function ensureVisitRequestsSheet_() {
++  var ss = SpreadsheetApp.getActiveSpreadsheet();
++  var sh = ss.getSheetByName(SHEET.VISIT_REQUESTS);
++  if (sh && sh.getLastRow() > 0) return sh;
++  var lock = null;
++  try { lock = LockService.getScriptLock(); lock.tryLock(10000); } catch (e) { lock = null; }
++  try {
++    sh = ss.getSheetByName(SHEET.VISIT_REQUESTS);
++    if (sh && sh.getLastRow() > 0) return sh;
++    sh = ensureSheet_(ss, SHEET.VISIT_REQUESTS, [VISIT_REQUEST_HEADER.slice()]);
++    if (sh) protectSensitiveSheets_(ss, [SHEET.VISIT_REQUESTS]);
++    return sh;
++  } catch (e) {
++    return null;
++  } finally {
++    if (lock) { try { lock.releaseLock(); } catch (x) {} }
++  }
++}
+ /** 文字欄長度上限（超長回 null，同 feedbackText_ 模式） */
+ function troopText_(value, maxLength) {
+   var text = String(value == null ? '' : value).trim();
+@@ -4486,7 +4606,7 @@ function deleteTroopContact_(token, id) {
+   return ok({ deleted: true, id: target.id });
+ }
+ 
+-// ===================== 聯絡區會 VisitRequests（v4.32.0） =====================
++// ===================== 邀請探訪/出席活動 VisitRequests（v4.32.0；v4.37.2 改名及自動補表） =====================
+ // 成員系統公開提交（唔使登入，經成員端 proxy 白名單）：請求區幹部探訪／邀請出席活動。
+ // 回覆聯絡資料同「你講我聽」一樣係自願填：wantReply=FALSE 時後端清走所有聯絡欄。
+ // 申請同已完成探訪（Visits）分開儲存；幹部喺「旅團 → 申請／邀請」跟進狀態，
+@@ -4522,8 +4642,6 @@ function visitRequestRow_(r) {
+ function submitVisitRequest_(b) {
+   var locked = guardLocked_(); if (locked) return locked;
+   b = b || {};
+-  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.VISIT_REQUESTS);
+-  if (!sh) return err('聯絡區會服務尚未就緒，請聯絡區會職員');
+   var type = String(b.type || '').trim().toLowerCase();
+   if (VISIT_REQUEST_TYPES.indexOf(type) < 0) return err('申請類別不正確（請求探訪／邀請出席）');
+   var troop = String(b.troop == null ? '' : b.troop).trim();
+@@ -4556,6 +4674,8 @@ function submitVisitRequest_(b) {
+       return err('選擇需要回覆時，請提供有效的聯絡方式及帳號');
+     }
+   }
++  var sh = ensureVisitRequestsSheet_();
++  if (!sh) return err('邀請探訪/出席活動服務尚未就緒，請聯絡區會職員');
+   var id = genId_('vr');
+   var refCode = genRef_('TR');
+   var now = new Date().toISOString();
+@@ -4580,7 +4700,7 @@ function submitVisitRequest_(b) {
+ 
+ function getVisitRequests_(token) {
+   var t = requireCardView_(token, 'troopRequests'); if (t.error) return err(t.error);
+-  if (!visitRequestsReady_()) return err('尚未執行 setupSheets()（缺 VisitRequests 表）');
++  if (!ensureVisitRequestsSheet_()) return err('尚未執行 setupSheets()（缺 VisitRequests 表）');
+   var scope = troopScopeSection_(t.role);
+   var rows = readSheet_(SHEET.VISIT_REQUESTS).map(visitRequestRow_)
+     .filter(function (r) { return !!r.id && !!r.troop; })
+@@ -7689,21 +7809,108 @@ function venueMailConfig_() {
+   var fromName = getConfigValue_('notifyFrom') || (districtName + ' 管理系統');
+   return { districtName: districtName, fromName: fromName };
+ }
++function isValidEmailAddress_(email) {
++  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim());
++}
++function normalizeEmailList_(raw) {
++  var seen = {};
++  var valid = [];
++  var invalid = [];
++  String(raw || '').split(/[,，;；\s\r\n]+/).forEach(function (part) {
++    var s = String(part || '').trim();
++    if (!s) return;
++    var key = s.toLowerCase();
++    if (!isValidEmailAddress_(s)) {
++      invalid.push(s);
++      return;
++    }
++    if (!seen[key]) {
++      seen[key] = true;
++      valid.push(s);
++    }
++  });
++  return { valid: valid, invalid: invalid, joined: valid.join(',') };
++}
+ /** HTML 轉義，避免申請人名字含特殊字元破壞電郵樣式 */
+ function esc_(v) {
+   return String(v == null ? '' : v)
+     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+ }
++/** 遞交申請 → 寄「已收到申請」確認電郵俾申請人 */
++function sendVenueSubmissionEmail_(req) {
++  var parsed = normalizeEmailList_(req && req.email);
++  if (!parsed.joined) {
++    return { sent: false, to: '', warn: String((req && req.email) || '').trim() ? '申請人電郵格式不正確，未能寄出申請確認電郵' : '' };
++  }
++  var cfg = venueMailConfig_();
++  var name = req.name || '申請人';
++  var venueLabel = req.venueName || req.venueId || '區總部';
++  var period = (req.startDate || '') + (req.endDate ? ' → ' + req.endDate : '');
++  var textBody =
++    '你好 ' + name + '，\n\n'
++    + '已收到你所提交嘅場地借用申請（目前狀態：待批核）：\n'
++    + '・申請編號：' + (req.refCode || '—') + '\n'
++    + '・場地：' + venueLabel + '\n'
++    + (req.activityName ? '・活動名稱：' + req.activityName + (req.attendeeCount ? '（' + req.attendeeCount + ' 人）' : '') + '\n' : '')
++    + '・時段：' + period + '\n'
++    + '・用途：' + (req.purpose || '—') + '\n\n'
++    + '區會職員批核並設定電子門鎖密碼後，入場密碼會另行寄到此電郵地址。\n'
++    + '如有查詢，請提供申請編號與區職員聯絡。\n\n'
++    + cfg.districtName + ' 敬啟';
++  var html =
++    '<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;padding:20px;border:1px solid #e1e4e8;border-radius:8px;">'
++    + '<h2 style="color:#1d4ed8;text-align:center;border-bottom:2px solid #bfdbfe;padding-bottom:10px;">🏛 已收到場地借用申請</h2>'
++    + '<p>你好 ' + esc_(name) + '，已收到你提交的場地借用申請（待區會職員審批）：</p>'
++    + '<div style="background:#f6f8fa;border-left:4px solid #2563eb;padding:14px 18px;margin:16px 0;font-size:14px;color:#444;line-height:1.8;">'
++    + '<b>申請編號：</b>' + esc_(req.refCode || '—') + '<br/>'
++    + '<b>場地：</b>' + esc_(venueLabel) + '<br/>'
++    + (req.activityName ? '<b>活動名稱：</b>' + esc_(req.activityName) + (req.attendeeCount ? '（' + esc_(req.attendeeCount) + ' 人）' : '') + '<br/>' : '')
++    + '<b>時段：</b>' + esc_(period) + '<br/>'
++    + '<b>用途：</b>' + esc_(req.purpose || '—')
++    + '</div>'
++    + '<p style="font-size:14px;color:#374151;line-height:1.7;">區職員批核並完成電子門鎖設定後，將會再寄出「批核結果及入場密碼」到此電郵地址（請同時留意垃圾郵件箱）。</p>'
++    + '<p style="font-size:13px;color:#666;text-align:center;margin-top:26px;">' + esc_(cfg.districtName) + ' 敬啟</p>'
++    + '</div>';
++  MailApp.sendEmail({
++    to: parsed.joined,
++    subject: '[' + cfg.districtName + '] 已收到場地借用申請（' + (req.refCode || '') + '）',
++    body: textBody,
++    htmlBody: html,
++    name: cfg.fromName,
++  });
++  return { sent: true, to: parsed.joined, warn: '' };
++}
+ /** 批准 → 寄「已批准 + 入場密碼」俾申請人 */
+ function sendVenueApprovalEmail_(req, passcode, validFrom, validTo) {
+-  var email = String(req.email || '').trim();
+-  if (!email) { console.log('無申請人電郵，跳過批准通知。'); return; }
++  var parsed = normalizeEmailList_(req && req.email);
++  if (!parsed.joined) {
++    if (String((req && req.email) || '').trim()) {
++      throw new Error('申請人電郵格式無效（' + String(req.email).trim() + '）');
++    }
++    console.log('無申請人電郵，跳過批准通知。');
++    return;
++  }
++  var email = parsed.joined;
+   var cfg = venueMailConfig_();
+   var name = req.name || '申請人';
+-  var validLine = (validFrom && validTo)
+-    ? ('<div style="font-size:12px;color:#166534;margin-top:6px;">密碼生效時段：' + esc_(formatHkDateTime_(validFrom)) + ' → ' + esc_(formatHkDateTime_(validTo)) + '（已含前後 15 分鐘緩衝）</div>')
++  var validText = (validFrom && validTo)
++    ? (formatHkDateTime_(validFrom) + ' → ' + formatHkDateTime_(validTo) + '（已含前後 15 分鐘緩衝）')
++    : '';
++  var validLine = validText
++    ? ('<div style="font-size:12px;color:#166534;margin-top:6px;">密碼生效時段：' + esc_(validText) + '</div>')
+     : '';
++  var textBody =
++    '你好 ' + name + '，你所申請的場地借用已獲批准：\n\n'
++    + '・場地：' + (req.venueName || req.venueId) + '\n'
++    + '・日期：' + (req.startDate || '') + (req.endDate ? ' → ' + req.endDate : '') + '\n'
++    + '・申請編號：' + (req.refCode || '') + '\n'
++    + '・用途：' + (req.purpose || '—') + '\n\n'
++    + '🔑 電子門鎖入場密碼：' + passcode + '#\n'
++    + '請於借用時段在門鎖鍵盤輸入 ' + passcode + ' 後按 # 開鎖。\n'
++    + (validText ? '密碼生效時段：' + validText + '\n' : '')
++    + '\n使用守則：使用完畢後請關閉所有電源、清走垃圾並鎖好場地。如有問題請聯絡區職員。\n\n'
++    + cfg.districtName + ' 敬啟';
+   var html =
+     '<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;padding:20px;border:1px solid #e1e4e8;border-radius:8px;">'
+     + '<h2 style="color:#15803d;text-align:center;border-bottom:2px solid #bbf7d0;padding-bottom:10px;">✅ 場地借用已獲批准</h2>'
+@@ -7725,15 +7932,22 @@ function sendVenueApprovalEmail_(req, passcode, validFrom, validTo) {
+     + '</div>'
+     + '<p style="font-size:13px;color:#666;text-align:center;margin-top:26px;">' + esc_(cfg.districtName) + ' 敬啟</p>'
+     + '</div>';
+-  MailApp.sendEmail({ to: email, subject: '[' + cfg.districtName + '] 場地借用已獲批准 - 入場密碼 ' + passcode, htmlBody: html, name: cfg.fromName });
++  MailApp.sendEmail({ to: email, subject: '[' + cfg.districtName + '] 場地借用已獲批准 - 入場密碼 ' + passcode, body: textBody, htmlBody: html, name: cfg.fromName });
+ }
+ /** 拒絕 / 取消 → 電郵通知申請人 */
+ function sendVenueRejectionEmail_(req, status) {
+-  var email = String(req.email || '').trim();
+-  if (!email) { console.log('無申請人電郵，跳過拒絕通知。'); return; }
++  var parsed = normalizeEmailList_(req && req.email);
++  if (!parsed.joined) { console.log('無有效申請人電郵，跳過拒絕／取消通知。'); return; }
++  var email = parsed.joined;
+   var cfg = venueMailConfig_();
+   var name = req.name || '申請人';
+   var title = status === 'cancelled' ? '已取消' : '未獲批准';
++  var textBody =
++    '你好 ' + name + '，你所申請的場地借用已' + title + '：\n\n'
++    + '・場地：' + (req.venueName || req.venueId) + '\n'
++    + '・日期：' + (req.startDate || '') + (req.endDate ? ' → ' + req.endDate : '') + '\n'
++    + (req.refCode ? '・申請編號：' + req.refCode + '\n' : '')
++    + '\n如有疑問，請聯絡區職員查詢。\n\n' + cfg.districtName + ' 敬啟';
+   var html =
+     '<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;padding:20px;border:1px solid #e1e4e8;border-radius:8px;">'
+     + '<h2 style="color:#dc2626;text-align:center;border-bottom:2px solid #fecaca;padding-bottom:10px;">❌ 場地借用' + title + '</h2>'
+@@ -7745,12 +7959,39 @@ function sendVenueRejectionEmail_(req, status) {
+     + '<p style="font-size:14px;color:#555;">如有疑問，請聯絡區職員查詢。</p>'
+     + '<p style="font-size:13px;color:#666;text-align:center;margin-top:26px;">' + esc_(cfg.districtName) + ' 敬啟</p>'
+     + '</div>';
+-  MailApp.sendEmail({ to: email, subject: '[' + cfg.districtName + '] 場地借用' + title, htmlBody: html, name: cfg.fromName });
++  try {
++    MailApp.sendEmail({ to: email, subject: '[' + cfg.districtName + '] 場地借用' + title, body: textBody, htmlBody: html, name: cfg.fromName });
++  } catch (e) {
++    console.error('借場拒絕／取消電郵發送失敗：' + String((e && e.message) || e));
++  }
+ }
+ function notifyStaff_(subject, body) {
+-  var to = getConfigValue_('NOTIFY_STAFF_EMAIL');
+-  if (!to) return;
+-  try { MailApp.sendEmail(to, subject, body); } catch (e) {}
++  var rawTo = getConfigValue_('NOTIFY_STAFF_EMAIL');
++  if (!String(rawTo || '').trim()) return { sent: false, to: '', warn: '' };
++  var parsed = normalizeEmailList_(rawTo);
++  if (parsed.invalid.length) {
++    console.error('NOTIFY_STAFF_EMAIL 含有無效電郵格式：' + parsed.invalid.join(', '));
++  }
++  if (!parsed.joined) {
++    return { sent: false, to: '', warn: 'NOTIFY_STAFF_EMAIL 格式不正確，未能通知職員' };
++  }
++  try {
++    MailApp.sendEmail({
++      to: parsed.joined,
++      subject: subject,
++      body: body,
++      name: venueMailConfig_().fromName,
++    });
++    return {
++      sent: true,
++      to: parsed.joined,
++      warn: parsed.invalid.length ? ('NOTIFY_STAFF_EMAIL 部分電郵無效：' + parsed.invalid.join(', ')) : '',
++    };
++  } catch (e) {
++    var msg = '職員通知電郵發送失敗：' + String((e && e.message) || e);
++    console.error(msg);
++    return { sent: false, to: parsed.joined, warn: msg };
++  }
+ }
+ 
+ // ===================== 卡片（管理系統主控台） =====================
+@@ -8769,7 +9010,7 @@ function blueprint_() {
+       ['id', 'troop', 'section', 'unitCode', 'contactRole', 'name', 'phone', 'email', 'note', 'active', 'createdAt', 'updatedAt', 'updatedBy'],
+     ] },
+ 
+-    // v4.32.0 成員端「聯絡區會」：請求探訪／邀請出席（公開提交；幹部經 troopRequests 權限行處理）
++    // v4.32.0 成員端「邀請探訪/出席活動」：請求探訪／邀請出席（公開提交；幹部經 troopRequests 權限行處理）
+     { name: SHEET.VISIT_REQUESTS, rows: [
+       ['id', 'refCode', 'districtCode', 'createdAt', 'type', 'troop', 'section', 'activityName',
+         'preferredDate', 'preferredTime', 'location', 'purpose', 'attendeeCount',
+diff --git a/scripts/test-demo-engine.ts b/scripts/test-demo-engine.ts
+index cc8a43e..4b437e1 100644
+--- a/scripts/test-demo-engine.ts
++++ b/scripts/test-demo-engine.ts
+@@ -216,7 +216,7 @@ check('v4.29.0 團階層：getVisitBoard 帶 unitSectionsReady＋示範列；sav
+   resetDemoData();
+ });
+ 
+-check('🔒 旅團聯絡／📨 聯絡區會（示範）：seed 資料、新增聯絡、公開提交申請及處理狀態', () => {
++check('🔒 旅團聯絡／📨 邀請探訪/出席活動（示範）：seed 資料、新增聯絡、公開提交申請及處理狀態', () => {
+   const perms = demoCall('getPerms', { token: T.adc }, 'GET');
+   assert.strictEqual(perms.data.subPerms.length, 5, 'getPerms 要帶子分頁清單');
+   assert.strictEqual(perms.data.subPerms.find((x: any) => x.id === 'activity').parentId, 'troop');
+diff --git a/scripts/test-visit-gs.js b/scripts/test-visit-gs.js
+index fbcd475..85969c7 100644
+--- a/scripts/test-visit-gs.js
++++ b/scripts/test-visit-gs.js
+@@ -398,9 +398,9 @@ check('DC 保密留言卡清楚標示區總監及系統超管存取範圍', () =
+   assert.strictEqual(card.description, '只限區總監查閱（系統超級管理員亦可）');
+ });
+ 
+-check('健康檢查版本 4.33.0（旅團聯絡／申請表就緒）', () => {
++check('健康檢查版本 4.37.2（旅團聯絡／申請表就緒）', () => {
+   const parsed = JSON.parse(ctx.doGet({ parameter: { action: 'getHealthCheck' } }));
+-  assert.strictEqual(parsed.data.version, '4.33.0');
++  assert.strictEqual(parsed.data.version, '4.37.2');
+   assert.strictEqual(parsed.data.troopContactsReady, true);
+   assert.strictEqual(parsed.data.visitRequestsReady, true);
+ });
+@@ -575,10 +575,13 @@ check('🔒 旅團聯絡：ADC 只見自己支部；支部冇團長就只見旅
+   assert.ok(!pub.includes('童軍團長'), '成員端公開回應絕不可包含領袖姓名');
+ });
+ 
+-check('📨 聯絡區會：公開提交、回覆聯絡可選、唔寫入 Visits、ADC 分流支部申請', () => {
++check('📨 邀請探訪/出席活動：公開提交、回覆聯絡可選、唔寫入 Visits、ADC 分流支部申請；缺 VisitRequests 表時自動補建', () => {
++  delete sheets.VisitRequests;
++  assert.strictEqual(ctx.visitRequestsReady_(), false);
+   const visitsBefore = sheets.Visits._data.length;
+   const noReply = ctx.submitVisitRequest_({ type: 'visit', troop: '206', section: 'scout', purpose: '想請區幹部嚟集會交流招募經驗', wantReply: false, contactName: '唔想留名', contactType: 'phone', contact: '9999 8888' });
+   assert.strictEqual(noReply.ok, true);
++  assert.strictEqual(ctx.visitRequestsReady_(), true, '缺 VisitRequests 表時 submitVisitRequest_ 應自動補建');
+   assert.ok(/^TR-/.test(noReply.data.refCode));
+   const stored = sheets.VisitRequests._data.find(r => r[0] === noReply.data.id);
+   const head = sheets.VisitRequests._data[0];

@@ -255,10 +255,10 @@ test('重新載入後支部關閉：不得靜默改成全旅，須重新選擇',
 });
 
 test('GS 回傳錯誤時顯示原因，保留表單而不是顯示成功', async (t) => {
-  const { user, upstreamPosts } = await openForm(t, { submitError: '聯絡區會服務尚未就緒' });
+  const { user, upstreamPosts } = await openForm(t, { submitError: '邀請探訪/出席活動服務尚未就緒' });
   await fillBasics(user);
   await user.click(screen.getByRole('button', { name: '提交申請' }));
-  await waitFor(() => assert.match(screen.getByRole('alert').textContent, /聯絡區會服務尚未就緒/));
+  await waitFor(() => assert.match(screen.getByRole('alert').textContent, /邀請探訪\/出席活動服務尚未就緒/));
   assert.ok(screen.getByLabelText(/^申請目的/).value.includes('希望區幹部'));
   assert.equal(screen.queryByText('申請提交成功'), null);
   assert.equal(upstreamPosts.length, 1);

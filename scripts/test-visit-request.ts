@@ -244,11 +244,11 @@ test('提交後連線中斷須提示狀態不明，避免重複提交', async (t
 
 test('GS 錯誤及非 2xx 回應不假裝成功；錯誤不洩露 API Key', async (t) => {
   const urlEncodedKey = new URLSearchParams({ key: KEY }).toString().slice(4);
-  const calls = mockGs(t, { submitBody: { ok: false, error: `聯絡區會服務尚未就緒 ${KEY} ${encodeURIComponent(KEY)} ${urlEncodedKey}` } });
+  const calls = mockGs(t, { submitBody: { ok: false, error: `邀請探訪/出席活動服務尚未就緒 ${KEY} ${encodeURIComponent(KEY)} ${urlEncodedKey}` } });
   const result = await post(base);
   assert.equal(result.status, 502);
   assert.equal(result.body.ok, false);
-  assert.match(result.body.error || '', /聯絡區會服務尚未就緒/);
+  assert.match(result.body.error || '', /邀請探訪\/出席活動服務尚未就緒/);
   for (const secret of [KEY, encodeURIComponent(KEY), urlEncodedKey]) assert.ok(!JSON.stringify(result.body).includes(secret));
   assert.ok(calls.some((call) => call.action === 'submitVisitRequest'));
 });
