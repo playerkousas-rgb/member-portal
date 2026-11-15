@@ -15,9 +15,13 @@ backend/
     └── admin-v4.37.1-venue-email.patch  ← 套用於 scout-district-portal HEAD (b1427ee) 嘅配套改動
 ```
 
-## 每次改動前必做：上游同步檢查
+## 每次改動前必做：雙向 GS 同步檢查（比較邊一邊較新）
 
-開始任何後端、API 合約或共用資料結構改動前，先檢查 `playerkousas-rgb/scout-district-portal` 最新 `main`（例如比較 `gs/Code.gs` 版本與最新 commit），將新嘅 `gs/releases/` 快照與 `gs/Code.gs` 同步到 `backend/gs-releases/`，確保永遠基於最新版本修改、唔會覆寫上游已上線功能。
+**每次開始任何改動前**，必須先檢查並比較 `playerkousas-rgb/scout-district-portal`（`gs/Code.gs` 與 `gs/releases/`）及本倉（`backend/gs-releases/`）兩邊嘅 GS 版本及最新 commit，先睇清**邊一邊較新**：
+
+1. 若 `scout-district-portal` 嘅 `gs/Code.gs` / `gs/releases/` 較新：先把新版快照及 `gs/Code.gs` 同步到本倉 `backend/gs-releases/`，確保基於最新版本改動、唔會覆寫對方已上線功能。
+2. 若本倉 `backend/gs-releases/` 較新或今次需要修改 GS：基於最新版輸出新版本 `Code-v<版本號>.gs`，並將對應補丁存於 `backend/patches/`，方便對方同步到 `scout-district-portal`。
+3. 確認兩邊 `Code.gs` 版本一致後（現時雙方均已同步至 `v4.37.1`），先繼續進行改動與測試。
 
 ## 版本約定
 

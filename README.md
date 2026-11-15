@@ -19,7 +19,7 @@
 | `/training` | `listCourseLinks` | `submitCourseReg` → 每班 Script `addReg` |
 | `/activity` | —（只作公開提交） | `submitActivityNotice` |
 | `/troops`（區內旅團） | `listDistrictTroops` | — |
-| `/contact-district`（聯絡區會） | `listDistrictTroops` | `submitVisitRequest`（旅團探訪申請／活動邀請） |
+| `/contact-district`（邀請探訪/出席活動） | `listDistrictTroops` | `submitVisitRequest`（旅團探訪申請／活動邀請） |
 | `/feedback`（你講我聽） | — | `submitDistrictFeedback`（匿名區務意見箱；可選 DC 保密直達） |
 | 全站 | `getConfig`、`getSystem`、`getPublicInfo` | 系統鎖定時 server 拒絕提交；借用規則／旅團清單／Teamup 網址等動態文字以區系統 Config 為唯一來源（本地常識只作後備） |
 
@@ -56,7 +56,7 @@
 - 留言類別：`opinion`（想同區講）／`support`（想區支援）；另設 `dcOnly` 保密選項——**後台必須寫入獨立 `DCConfidential` 分頁且 Sheet 分享權限只限 DC**，先算真正「只有 DC 睇到」。
 - 提交走 `/api/proxy` → 新 action `submitDistrictFeedback`（GS 待配合）；復用 honeypot、提交時間檢查、per-IP 限流，匿名留言唔記 IP。呢個渠道處理區務留言，同 Scout Admin widget 嘅 App 技術問題回報完全分開。
 
-### 「聯絡區會」探訪申請及活動邀請（`/contact-district`）
+### 「邀請探訪/出席活動」（`/contact-district`）
 
 - 旅號及支部由 `listDistrictTroops` 公開名錄提供；只列該旅已開設的支部，全旅申請可留空。proxy 每次提交前重新核對最新公開名錄，名錄不可用時不提交。
 - 申請人可自願要求回覆；未要求時前端即時清除及隱藏聯絡欄位，瀏覽器和 proxy 均不會傳送這些欄位。聯絡資料不保存在本機草稿，只供區會回覆今次申請。
@@ -137,9 +137,11 @@ Service worker 另外只快取本站 JS/CSS／圖示／manifest 等靜態檔（�
 
 想即時攞最新資料：前端「↻ 更新數量」／「重試」／「重新載入名錄」會用 `{ fresh: true }`，加 `?refresh=1` 一次過繞過瀏覽器、edge 同 server 快取；本機／自動測試可設 `MEMBER_PORTAL_DISABLE_CACHE=1` 完全停用快取。
 
-## 對接狀態（與 scout-district-portal v4.32.0 核對）
+## 對接狀態（與 scout-district-portal 共用 GS，現已雙向同步至 v4.37.1）
 
-已對照管理系統 PR #54 合併 commit `03352ed` 的 `gs/Code.gs`；本次沒有修改管理系統程式。2026-10-27 公開 `getHealthCheck` 回報線上 GS v4.32.0 及 `visitRequestsReady=true`；健康檢查不能證明實際欄位上限或完成正式端到端連線。
+> **每次改動前必做**：先檢查並比較 `playerkousas-rgb/scout-district-portal`（`gs/Code.gs`、`gs/releases/`）同本倉 `backend/gs-releases/` 邊一邊嘅 GS 較新；邊邊新就先同步（詳見 `backend/gs-releases/README.md` 及 `AGENTS.md`）。
+
+已核對 `scout-district-portal` `gs/Code.gs` 與本倉 `backend/gs-releases/Code-v4.37.1.gs`（`v4.37.1` 完全一致）；健康檢查 `getHealthCheck` 可確認線上實際部署版本。
 
 - `/api/proxy` 維持公開 action allowlist，唔會放行管理、私人聯絡、登入或批核 action。
 - `listDistrictTroops` 維持 v1.3 旅→團欄位合約，但 v4.31.0 只回傳已開設支部：`sectionCounts` 省略 0／空白，`units` 排除已關閉支部嘅團。成員頁只顯示有團嘅支部標籤。
@@ -149,7 +151,7 @@ Service worker 另外只快取本站 JS/CSS／圖示／manifest 等靜態檔（�
 餘下事項：
 
 - 尚未有真實課程，訓練班報名流程未做過端到端實測；待開班後應以「真實課程」行一次報名，確認 `refCode` 回傳及每班 Sheet 收到資料。
-- 聯絡區會正式端到端測試尚未進行：2026-10-27 合併前確認 GS 就緒，當時正式成員站 `/contact-district` 仍回 404；須待新成員端部署後，才可測試真實提交和區方跟進。需另核實線上 GS 的活動名稱及人數上限。
+- 「邀請探訪/出席活動」正式端到端測試及需另核實線上 GS 的活動名稱及人數上限仍待實機跟進。
 - 部署前提：Vercel 設好 `MEMBER_SKW_APIKEY`，管理系統主 `Code.gs` 已部署為「任何人」可執行嘅 Web App，並喺 `Config` 設定 `API_KEY_HASH`；可經免 API Key 嘅 `getHealthCheck` 確認線上版本。
 
 ## 本機及 Vercel 設定
@@ -173,14 +175,14 @@ API Key 只可放 server env，**不可使用 `NEXT_PUBLIC_` 前綴**。
 
 ```bash
 npm run typecheck
-npm test                 # 旅團名錄、聯絡區會表單及 proxy（模擬 GS）
+npm test                 # 旅團名錄、「邀請探訪/出席活動」表單及 proxy（模擬 GS）
 npm run build
 npm audit
 ```
 
 ## 表單防呆機制（lib/useFormGuard.ts）
 
-借場、借物資、活動知會、訓練班報名、區務意見及聯絡區會表單沿用同一套防呆（移植自區系統 v4.15.0「寫入防呆」）：
+借場、借物資、活動知會、訓練班報名、區務意見及「邀請探訪/出席活動」表單沿用同一套防呆（移植自區系統 v4.15.0「寫入防呆」）：
 
 1. **草稿自動保存**——填緊嘅嘢 800ms 後自動存入瀏覽器 localStorage（`mp:draft:*`），refresh／意外關頁都唔會甩；收據／截圖大檔喺配額唔夠時會自動剔走、文字照保住；
 2. **離開提示**——有未提交內容就離開頁面／重新整理，瀏覽器會彈提示（同區系統探訪頁同一寫法）；
@@ -202,7 +204,7 @@ npm audit
 
 > 目標：Vercel 儲存配額唔會爆，同時功能零倒退。
 
-1. **`.vercelignore` 係部署黑名單**——`.git`、`backend/`（Apps Script 快照與管理端 patch）、`docs/`（補丁／合約文件）、`scripts/`（測試／loader）、`node_modules`、`.next`、`coverage`、`*.log/*.bak/*.tmp/*.old` 一律唔上部署包。新嘅開發腳本／測試輸出必須同步加入；
+1. **`.vercelignore` 係部署黑名單**——`.git`、`AGENTS.md`、`backend/`（Apps Script 快照與管理端 patch）、`docs/`（補丁／合約文件）、`scripts/`（測試／loader）、`node_modules`、`.next`、`coverage`、`*.log/*.bak/*.tmp/*.old` 一律唔上部署包。新嘅開發腳本／測試輸出必須同步加入；
 2. **`public/` 檔案會原樣進部署包**——未引用嘅圖檔禁止提交；加新靜態資源前先 `grep -rn "檔名" app components public`。`/sw.js` 已改由 `app/sw.js/route.ts` 產生（要注入 build 版本），`public/sw.js` 已移除，唔好再加返；
 3. **圖示去重**——SW 通知圖示同 manifest 共用同一個 `icon-192.png`（原本多存咗一份位元組級相同嘅 `notification-192.png`，已刪，省 49K）；
 4. **依賴極簡**——`package.json` 只有 `next / react / react-dom / qrcode.react` 四個 runtime 依賴；加新依賴前要講明理由；

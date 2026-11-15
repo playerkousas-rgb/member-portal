@@ -135,6 +135,8 @@ test('首頁預設次序：GEMINI 輔助系統與 SCOUT APP STORE 放最後兩�
   const titles = () => [...container.querySelectorAll('.grid .card h3')].map((el) => el.textContent);
 
   assert.equal(titles().length, 11);
+  assert.ok(titles().includes('邀請探訪/出席活動'), '首頁服務卡應改名為「邀請探訪/出席活動」');
+  assert.ok(!titles().includes('聯絡區會'), '首頁服務卡不應保留舊名「聯絡區會」');
   assert.deepEqual(titles().slice(-2), ['GEMINI 輔助系統', 'SCOUT APP STORE']);
   assert.equal(screen.queryByRole('button', { name: '↺ 還原預設次序' }), null, '預設次序時唔顯示還原掣');
 
