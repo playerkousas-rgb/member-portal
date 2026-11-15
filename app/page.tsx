@@ -42,12 +42,12 @@ const SERVICES: readonly ServiceCard[] = [
   {
     id: 'stock',
     href: '/stock', icon: '📦', title: '借用物資',
-    tag: '公開提交', external: false,
+    tag: '提交', external: false,
   },
   {
     id: 'training',
     href: '/training', icon: '🎓', title: '訓練班報名',
-    tag: '公開報名', external: false,
+    tag: '提交', external: false,
   },
   {
     id: 'badges',
@@ -57,7 +57,7 @@ const SERVICES: readonly ServiceCard[] = [
   {
     id: 'activity',
     href: '/activity', icon: '📋', title: '旅團活動知會',
-    tag: '公開提交', external: false,
+    tag: '提交', external: false,
   },
   {
     id: 'troops',
@@ -67,7 +67,7 @@ const SERVICES: readonly ServiceCard[] = [
   {
     id: 'contact-district',
     href: '/contact-district', icon: '📨', title: '邀請探訪/出席活動',
-    tag: '公開提交', external: false,
+    tag: '提交', external: false,
   },
   {
     id: 'feedback',
