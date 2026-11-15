@@ -275,7 +275,7 @@ driveFolderId
 }
 ```
 
-### `submitVisitRequest`（「聯絡區會」，GS v4.32.0）
+### `submitVisitRequest`（「邀請探訪/出席活動」，GS v4.32.0）
 
 成員端 `/contact-district` 讓旅團申請區幹部探訪（`visit`）或邀請出席活動（`invite`）。以下為不要求回覆的例子；經 member proxy POST 至共用 GS，API Key 只由 server env 注入：
 

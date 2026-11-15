@@ -149,7 +149,7 @@ export default function ContactDistrictPage() {
     const typeLabel = VISIT_REQUEST_TYPES.find((item) => item.value === prepared.payload.type)?.label || '';
     const sectionLabel = sections.find((item) => item.key === prepared.payload.section)?.label || '全旅';
     if (!confirmSubmit(
-      `確認提交聯絡區會申請？\n\n${typeLabel}\n旅團：${selectedTroop?.label || prepared.payload.troop}\n支部：${sectionLabel}\n`
+      `確認提交邀請探訪/出席活動申請？\n\n${typeLabel}\n旅團：${selectedTroop?.label || prepared.payload.troop}\n支部：${sectionLabel}\n`
       + `需要回覆：${prepared.payload.wantReply ? '是' : '否'}\n\n申請交區會跟進，不會自動成為探訪紀錄。`,
     )) return;
 
@@ -198,7 +198,7 @@ export default function ContactDistrictPage() {
   return (
     <>
       <Link href={withDistrict('/')} className="backlink">← 返回服務首頁</Link>
-      <h1 className="page-title">📨 聯絡區會</h1>
+      <h1 className="page-title">📨 邀請探訪/出席活動</h1>
       <p className="page-sub">申請區幹部探訪旅團，或邀請區幹部出席活動。</p>
 
       <section className="panel" style={{ borderLeft: '4px solid #1565c0' }}>

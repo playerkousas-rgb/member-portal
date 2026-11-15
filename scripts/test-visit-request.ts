@@ -1,4 +1,4 @@
-/** 聯絡區會：共用驗證及真實 proxy handler 的模擬 GS 測試。 */
+/** 邀請探訪/出席活動：共用驗證及真實 proxy handler 的模擬 GS 測試。 */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { NextRequest } from 'next/server';

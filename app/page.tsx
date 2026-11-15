@@ -66,7 +66,7 @@ const SERVICES: readonly ServiceCard[] = [
   },
   {
     id: 'contact-district',
-    href: '/contact-district', icon: '📨', title: '聯絡區會',
+    href: '/contact-district', icon: '📨', title: '邀請探訪/出席活動',
     tag: '公開提交', external: false,
   },
   {

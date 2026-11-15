@@ -50,7 +50,7 @@ export default function ContactPage() {
         </Link>
         <Link className="contact-primary-card" href={withDistrict('/contact-district')}>
           <span className="contact-icon">📨</span>
-          <span><small>旅團探訪申請 · 活動邀請</small><strong>聯絡區會</strong></span>
+          <span><small>區幹部探訪 · 活動邀請</small><strong>邀請探訪/出席活動</strong></span>
         </Link>
       </section>
 

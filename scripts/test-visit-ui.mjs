@@ -90,6 +90,7 @@ async function fillBasics(user, type = 'visit') {
 
 test('DOM → proxy → 模擬 GS：探訪不要求回覆，顯示 TR 編號及後續提示', async (t) => {
   const { user, browserPosts, upstreamPosts } = await openForm(t);
+  assert.ok(screen.getByRole('heading', { level: 1, name: /邀請探訪\/出席活動/ }));
   await fillBasics(user);
   const section = screen.getByLabelText(/^支部/);
   assert.deepEqual(within(section).getAllByRole('option').map((option) => option.value), ['', 'scout']);

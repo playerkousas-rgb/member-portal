@@ -1,4 +1,4 @@
-/** 「聯絡區會」表單及 proxy 共用嘅欄位驗證。唔包含任何私人名錄資料。 */
+/** 「邀請探訪/出席活動」表單及 proxy 共用嘅欄位驗證。唔包含任何私人名錄資料。 */
 import { openSectionsForTroop, SECTION_META } from './troops';
 import type { DistrictTroopsDirectory, TroopSectionKey } from './types';
 
