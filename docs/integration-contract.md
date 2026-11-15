@@ -16,9 +16,9 @@
 | `CourseLinks` | 只經 `listCourseLinks` 讀已清理公開欄位 |
 | `Venues` | 經 `listVenues` 讀選項 |
 | `Items` | 經 `listItems` 讀選項及可借數量 |
-| `ActivityNotices` | 經 `listActivityNotices` 讀已清理公開欄位 |
+| `ActivityNotices` | 只可經 `submitActivityNotice` 新增（`/activity` 純提交表單；成員端已停用公開讀取，管理端仍保留 `listActivityNotices`） |
 | `Units`／`UnitSections` | 只經 `listDistrictTroops` 讀 v1.3 公開旅團、已開設支部及團欄位；內部備註及啟用狀態唔流出 |
-| `VenueBookings` | 只可經 `submitVenueRequest` 新增；不可讀／改 status |
+| `VenueBookings` | 只可經 `submitVenueRequest` 新增（電郵必填）；不可讀／改 status |
 | `StockRequests` | 只可經 `submitStockRequest` 新增；不可讀／改 status |
 | `VisitRequests` | 只可經 `submitVisitRequest` 新增；不可讀／改 status |
 | `TroopContacts` | 私隱表，只限管理系統；成員端不得讀取或提供相關 action |
@@ -33,7 +33,7 @@ getPublicInfo
 listCourseLinks
 listVenues
 listItems
-listActivityNotices?year=&section=&nature=
+listAnnouncements
 listDistrictTroops
 ```
 
@@ -47,14 +47,7 @@ scriptApiKey
 driveFolderId
 ```
 
-`listActivityNotices` 經 member proxy 後不可回傳：
-
-```text
-leaderName
-leaderPhone
-leaderEmail
-note
-```
+> 註：`listActivityNotices` 已從 `member-portal` 公開 GET allowlist 移除（proxy 回 `403`），活動知會頁只保留提交功能；`scout-district-portal` 管理系統仍使用 `listActivityNotices`，故共用 `Code.gs` 保留該 action。
 
 ### `listDistrictTroops`（區內旅團公開名錄，v1.2 起；v1.3 延伸旅→團階層）
 
@@ -132,18 +125,19 @@ note
 ### 借場一條龍（成員端只負責提交；其餘全部喺後台 `gs/Code.gs`）
 
 ```text
-成員提交 submitVenueRequest
-  → VenueBookings（pending）
-  → Teamup「申請中」子日曆建事件（失敗唔擋收表，warn 回傳）
-  → 職員電郵（Config NOTIFY_STAFF_EMAIL）
+成員提交 submitVenueRequest（電郵必填且須通過格式驗證）
+  → VenueBookings（pending；自動補齊／兼容 email 與 Email 欄）
+  → Teamup「申請中」子日曆建事件（fail-closed：衝突或建事件失敗唔寫 pending）
+  → 申請人電郵收「已收到場地借用申請」確認電郵（HTML + 純文字；寄件失敗唔阻收表，回報 emailSent）
+  → 職員電郵（Config NOTIFY_STAFF_EMAIL，支援逗號／中文全形分隔符／空格）
 
 職員一鍵批准 approveVenueBooking
   → 通通鎖（Sciener）限時密碼（借用時段提前／延後 15 分鐘；PWD_MODE=phone4＝電話頭 4 位；撞碼自動重試）
   → Teamup 事件搬去「確認借用」子日曆，notes 補密碼
-  → 申請人電郵收「已獲批准＋入場密碼」（申請人冇填電郵則跳過）
+  → 申請人電郵收「已獲批准＋入場密碼」（HTML + 純文字；如需再寄可由管理端呼叫 resendVenueApprovalEmail）
 
 拒絕／取消 rejectVenueBooking / setVenueBookingStatus
-  → Teamup 拒絕事件（選填子日曆）＋ 申請人電郵
+  → Teamup 拒絕事件（選填子日曆）＋ 申請人電郵（HTML + 純文字）
 ```
 
 #### 成員端 Teamup 月曆：唯讀嵌入＋單一申請入口（方案 1）
@@ -174,7 +168,7 @@ note
 | `SCIENER_USERNAME`／`SCIENER_PASSWORD` | 管鎖帳號 | TTLock App（即 lock2.sciener.com）嘅登入 email＋密碼——當初設定區總部大門鎖嗰個帳戶（邊個同事管開把鎖就問邊個） |
 | `SCIENER_API_BASE` | API 區域 | 固定填 `https://api.sciener.com`（填咗 `open.sciener.com` Code.gs 會自動改正） |
 | `SCIENER_LOCK_ID` | 大門鎖 ID | 填好頭 4 條之後，管理系統借場審批頁（`/venue-regs`）有**「讀取鎖列表」掣**，一撳列出所有鎖＋Lock ID＋有冇網關；或跑 `node services/skw-booking/get-lock-id.js`。**必須揀「已連接網關：是」嗰把** |
-| `NOTIFY_STAFF_EMAIL` | 新申請職員電郵通知 | 區會電郵地址（可逗號分隔多個） |
+| `NOTIFY_STAFF_EMAIL` | 新申請職員電郵通知 | 區會電郵地址（支援英文／中文逗號、分號或空格分隔多個） |
 
 驗證方法（唔使將任何 key 貼出嚟）：
 

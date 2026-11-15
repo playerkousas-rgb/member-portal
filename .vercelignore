@@ -24,7 +24,8 @@ coverage
 *.tmp
 *.old
 
-# 開發文件（後台補丁／對接合約——GitHub 留存俾人着，唔參與線上運行）
+# 開發文件與後台存檔（補丁／GS 快照／對接合約——GitHub 留存俾人睇，唔參與線上運行）
+backend
 docs
 scripts
 

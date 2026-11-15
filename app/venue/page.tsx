@@ -10,6 +10,7 @@ import type { Venue } from '@/lib/types';
 import { useDistrict } from '@/lib/useDistrict';
 
 const empty = (value: string) => !value.trim();
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function VenuePage() {
   const { withDistrict } = useDistrict();
@@ -34,6 +35,7 @@ export default function VenuePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [doneRef, setDoneRef] = useState('');
+  const [doneEmailSent, setDoneEmailSent] = useState<boolean | undefined>(undefined);
 
   useEffect(() => {
     api.listVenues().then((result) => {
@@ -71,9 +73,14 @@ export default function VenuePage() {
     event.preventDefault();
     if (submitLock.current) return;
     setError('');
-    if (empty(venueId) || empty(name) || empty(phone) || empty(startDate) || empty(endDate)
+    const trimmedEmail = email.trim();
+    if (empty(venueId) || empty(name) || empty(phone) || empty(trimmedEmail) || empty(startDate) || empty(endDate)
       || empty(activityName) || empty(attendeeCount)) {
-      setError('請填妥必填項目（場地、日期時間、姓名、電話、活動名稱、參加人數）。');
+      setError('請填妥必填項目（場地、日期時間、姓名、電話、電郵、活動名稱、參加人數）。');
+      return;
+    }
+    if (!EMAIL_RE.test(trimmedEmail)) {
+      setError('請輸入有效電郵地址，以便接收提交確認及入場密碼。');
       return;
     }
     const attendees = Number(attendeeCount);
@@ -90,7 +97,7 @@ export default function VenuePage() {
       return;
     }
     if (!confirmSubmit(
-      `確認提交借用申請？\n\n時段：${startDate.replace('T', ' ')} → ${endDate.replace('T', ' ')}\n活動：${activityName}（${attendees} 人）\n聯絡人：${name}（${phone}）\n${email ? `電郵：${email}\n` : ''}${purpose ? `用途：${purpose}\n` : ''}\n提交後區會會喺管理系統跟進，批核結果會寄到你所填嘅電郵。`,
+      `確認提交借用申請？\n\n時段：${startDate.replace('T', ' ')} → ${endDate.replace('T', ' ')}\n活動：${activityName}（${attendees} 人）\n聯絡人：${name}（${phone}）\n電郵：${trimmedEmail}\n${purpose ? `用途：${purpose}\n` : ''}\n提交確認以及日後批核結果及入場密碼會寄到以上電郵。`,
     )) return;
 
     const meta = getSubmissionMeta(event.currentTarget, startedAt.current);
@@ -98,7 +105,7 @@ export default function VenuePage() {
     setBusy(true);
     const result = await api.submitVenueRequest(
       {
-        venueId, startDate, endDate, name, phone, email, troop, position,
+        venueId, startDate, endDate, name, phone, email: trimmedEmail, troop, position,
         activityName, attendeeCount: attendees, purpose, agreeRules: agree,
       },
       meta,
@@ -108,6 +115,7 @@ export default function VenuePage() {
     if (result.ok && result.data) {
       guard.clearDraft();
       setDoneRef(result.data.refCode || '已提交');
+      setDoneEmailSent(result.data.emailSent);
       window.scrollTo(0, 0);
     } else {
       setError(result.error || '提交失敗，請稍後再試。');
@@ -123,7 +131,9 @@ export default function VenuePage() {
           申請編號：<b style={{ color: '#003366' }}>{doneRef}</b>
         </p>
         <p style={{ color: '#64748b', fontSize: 13, marginTop: 10 }}>
-          提交並不等於批核完成；區會會喺管理系統跟進。批核結果及入場密碼會寄到你所填嘅電郵；如需查詢，請提供以上編號。
+          {doneEmailSent === false
+            ? '申請已記錄並交區會跟進，但申請確認電郵暫未能寄出。請記低以上編號；如批核後未收到密碼電郵，請聯絡區會查詢。'
+            : '提交並不等於批核完成；系統已寄出申請確認電郵（如未見請查閱垃圾郵件箱）。區會批核後，結果及入場密碼會再寄到你所填嘅電郵；如需查詢，請提供以上編號。'}
         </p>
         <div style={{ marginTop: 20 }}>
           <Link href={withDistrict('/')} className="btn-ghost">返回首頁</Link>
@@ -154,7 +164,7 @@ export default function VenuePage() {
         </div>
       </section>
 
-      <form className="panel" onSubmit={submit}>
+      <form className="panel" onSubmit={submit} noValidate>
         <h2>提交借用申請</h2>
         {error && <div className="err" role="alert">{error}</div>}
 
@@ -203,9 +213,9 @@ export default function VenuePage() {
         </div>
         <div className="frow">
           <div className="field">
-            <label>電郵</label>
-            <input type="email" value={email} maxLength={254} onChange={(event) => setEmail(event.target.value)} />
-            <p className="helptext">批核結果及入場密碼會寄到這個電郵，建議填寫。</p>
+            <label>電郵 <span className="req">*</span></label>
+            <input type="email" required value={email} maxLength={254} placeholder="例：name@example.com" onChange={(event) => setEmail(event.target.value)} />
+            <p className="helptext">提交確認、批核結果及入場密碼會寄到這個電郵，請務必填寫有效電郵。</p>
           </div>
           <div className="field">
             <label>旅團</label>

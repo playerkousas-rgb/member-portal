@@ -284,7 +284,7 @@ test('成功回應缺少有效 TR 編號時提示狀態未確認，避免重複�
   assert.match(result.body.error || '', /未能確認.*切勿重複提交/);
 });
 
-test('公開名錄及活動回應均剝除領袖私人電話／電郵；私人聯絡 action 全部禁止', async (t) => {
+test('公開名錄剝除領袖私人電話／電郵；私人聯絡及 listActivityNotices 全部禁止（403）', async (t) => {
   const calls = mockGs(t, { publicData: {
     listActivityNotices: [{ id: 'a', troop: '1745', activityName: '測試', leaderName: '私人姓名', leaderPhone: PRIVATE_PHONE, leaderEmail: PRIVATE_EMAIL }],
   } });
@@ -292,14 +292,13 @@ test('公開名錄及活動回應均剝除領袖私人電話／電郵；私人�
   assert.equal(publicDir.status, 200);
   const dirText = JSON.stringify(publicDir.body);
   for (const secret of [PRIVATE_PHONE, PRIVATE_EMAIL, '私人領袖姓名', KEY, 'leaderPhone', 'leaderEmail']) assert.ok(!dirText.includes(secret), secret);
-  const notice = await get('listActivityNotices');
-  assert.equal(notice.status, 200);
-  for (const secret of [PRIVATE_PHONE, PRIVATE_EMAIL, '私人姓名', KEY]) assert.ok(!JSON.stringify(notice.body).includes(secret), secret);
   const before = calls.length;
+  const notice = await get('listActivityNotices');
+  assert.equal(notice.status, 403, '公開 proxy 不應允許讀取活動知會清單');
   assert.equal((await get('getTroopContacts')).status, 403);
   assert.equal((await post({}, 'getTroopContacts')).status, 403);
   assert.equal((await get('listTroopContacts')).status, 403);
-  assert.equal(calls.length, before, '私人 action 不應送到上游');
+  assert.equal(calls.length, before, '禁止 action 不應送到上游');
 });
 
 test('其他所有公開 GET 白名單回應不轉發額外領袖私人欄位', async (t) => {
@@ -334,4 +333,40 @@ test('submitActivityNotice 既有提交欄位合約不變', async (t) => {
   assert.equal(result.status, 200);
   const submit = calls.find((call) => call.action === 'submitActivityNotice')?.body;
   assert.deepEqual(submit, { action: 'submitActivityNotice', apiKey: KEY, ...activity });
+});
+
+test('submitVenueRequest 必須填寫有效電郵並回傳 emailSent 狀態', async (t) => {
+  const validVenuePayload = {
+    venueId: 'HQ-1704',
+    startDate: '2027-05-15T19:00',
+    endDate: '2027-05-15T21:00',
+    name: '陳大文',
+    phone: '91234567',
+    email: 'chan@example.com',
+    troop: '港島第82旅',
+    position: '團長',
+    activityName: '旅集會',
+    attendeeCount: 20,
+    purpose: '常規集會',
+    agreeRules: true,
+  };
+
+  const callsMissing = mockGs(t);
+  const missingEmail = await post({ ...validVenuePayload, email: '   ' }, 'submitVenueRequest');
+  assert.equal(missingEmail.status, 400);
+  assert.ok(!callsMissing.some((c) => c.action === 'submitVenueRequest'));
+
+  const callsInvalid = mockGs(t);
+  const badEmail = await post({ ...validVenuePayload, email: 'not-an-email' }, 'submitVenueRequest');
+  assert.equal(badEmail.status, 400);
+  assert.match(badEmail.body.error || '', /有效電郵/);
+  assert.ok(!callsInvalid.some((c) => c.action === 'submitVenueRequest'));
+
+  const callsOk = mockGs(t, { submitBody: { ok: true, data: { refCode: 'VB-20270515-001', emailSent: true, emailTo: 'chan@example.com' } } });
+  const okRes = await post(validVenuePayload, 'submitVenueRequest');
+  assert.equal(okRes.status, 200);
+  assert.equal(okRes.body.data?.refCode, 'VB-20270515-001');
+  assert.equal(okRes.body.data?.emailSent, true);
+  assert.ok(!JSON.stringify(okRes.body).includes('chan@example.com'), 'proxy 不應將私隱欄位轉發回公開回應');
+  assert.ok(callsOk.some((c) => c.action === 'submitVenueRequest'));
 });
