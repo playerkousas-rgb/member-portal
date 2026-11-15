@@ -137,11 +137,11 @@ Service worker 另外只快取本站 JS/CSS／圖示／manifest 等靜態檔（�
 
 想即時攞最新資料：前端「↻ 更新數量」／「重試」／「重新載入名錄」會用 `{ fresh: true }`，加 `?refresh=1` 一次過繞過瀏覽器、edge 同 server 快取；本機／自動測試可設 `MEMBER_PORTAL_DISABLE_CACHE=1` 完全停用快取。
 
-## 對接狀態（與 scout-district-portal 共用 GS，現已雙向同步至 v4.37.1）
+## 對接狀態（與 scout-district-portal 共用 GS，本倉最新為 v4.37.2）
 
 > **每次改動前必做**：先檢查並比較 `playerkousas-rgb/scout-district-portal`（`gs/Code.gs`、`gs/releases/`）同本倉 `backend/gs-releases/` 邊一邊嘅 GS 較新；邊邊新就先同步（詳見 `backend/gs-releases/README.md` 及 `AGENTS.md`）。
 
-已核對 `scout-district-portal` `gs/Code.gs` 與本倉 `backend/gs-releases/Code-v4.37.1.gs`（`v4.37.1` 完全一致）；健康檢查 `getHealthCheck` 可確認線上實際部署版本。
+已核對 `scout-district-portal`（`70809bb`）已同步 `Code.gs` 至 `v4.37.1`；本倉再基於 `v4.37.1` 輸出 `Code-v4.37.2.gs` 及 `backend/patches/admin-v4.37.2-visit-rename.patch`（服務改名「邀請探訪/出席活動」及自動補建保護 `VisitRequests` 分頁）。健康檢查 `getHealthCheck` 可確認線上實際部署版本。
 
 - `/api/proxy` 維持公開 action allowlist，唔會放行管理、私人聯絡、登入或批核 action。
 - `listDistrictTroops` 維持 v1.3 旅→團欄位合約，但 v4.31.0 只回傳已開設支部：`sectionCounts` 省略 0／空白，`units` 排除已關閉支部嘅團。成員頁只顯示有團嘅支部標籤。
